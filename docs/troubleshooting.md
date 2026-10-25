@@ -18,7 +18,7 @@ Symptoms, their usual causes and what to do. Setup steps are in [setup.md](setup
 
 | Symptom | Usual cause | What to do |
 | --- | --- | --- |
-| The skill stops before reading: `git pull --ff-only` failed | Local changes or a diverged branch in the checkout | Commit or remove the local changes, or bring the branch back in line with the remote, then repeat the request. The skills never reset or stash anything |
+| The skill stops before reading: `git pull --ff-only` failed | Local changes, a diverged branch, or a checkout on another branch that holds commits of its own | Commit or remove the local changes, or bring the branch back in line with the remote, then repeat the request. A checkout on another branch with nothing of its own is switched to the default branch by the sync. The skills never reset or stash anything |
 | "The commit is local; the push failed" | No push permission, a network problem, or branch protection on the default branch | Fix the cause and run `git push` yourself; the delivery counts as done only after the push. The skills push to the default branch, so branch protection must allow it |
 | A rebase conflict stopped the delivery | The repository changed elsewhere (another session, an edit on github.com) on the same file | The skill aborted the rebase and named the files. Resolve it by hand (often: pull, then repeat the request), never by force-pushing |
 | A cloud session cannot push | GitHub access for claude.ai does not include the repository | Grant the Claude GitHub app access to the repository and start a new session |

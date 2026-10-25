@@ -1,11 +1,11 @@
 ---
 name: kb-ingest
-description: Files Office, PDF, mail, pictures and text into an evergreen Markdown library in a Google Drive folder or GitHub repository. Intake ("file these", "add to the knowledge base", "intake", "continue intake", "finish intake", or uploads): files each item by the library spec, searchable at once; removes duplicates, spots new versions, large folders in batches. Consolidation ("consolidate"): adds key conclusions, updates the status card after review. Archive ("archive old versions", "clean up duplicates"): moves old copies after a preview. Health check ("check the knowledge base", "health check"): reports only. Init ("get started with the knowledge base", "first time", "set up a knowledge base", "new library", "init"). Quick-note filing ("file my quick notes", "notes are filed"). Use it for any filing or setup even without these words. Not for questions (kb-query) or saving one note (kb-note).
+description: Files Office, PDF, mail, pictures and text into an evergreen Markdown library in a GitHub repository. Intake ("file these", "add to the knowledge base", "intake", "continue intake", "finish intake", or uploads): files each item by the library spec, searchable at once; removes duplicates, spots new versions, large folders in batches. Consolidation ("consolidate"): adds key conclusions, updates the status card after review. Archive ("archive old versions", "clean up duplicates"): moves old copies after a preview. Health check ("check the knowledge base", "health check"): reports only. Init ("get started with the knowledge base", "first time", "set up a knowledge base", "new library", "init"). Quick-note filing ("file my quick notes", "notes are filed"). Use it for any filing or setup even without these words. Not for questions (kb-query) or saving one note (kb-note).
 ---
 
 # Knowledge base intake, archive, health check and init
 
-Version: 2.3.0
+Version: 3.2.0
 
 ## Modes
 
@@ -15,8 +15,8 @@ Version: 2.3.0
 - Health check: after step 0, read references/lint.md. Report only, change nothing.
 - Quick-note filing: read references/notes.md and follow its two rounds; its intake part still uses step 0 and the intake mode of the library.
 - Batch mode: intake of files or folders on disk that make more than one batch, or "continue intake" / "finish intake". After step 0 and Check 1, read references/batches.md: it plans the batches, runs steps 1 to 4 and delivery per batch (per item in fast mode), and keeps step 5 and topic expansion's spec rewrite for one final step (consolidation in fast mode).
-- Init and getting started: read references/init.md and follow it (getting started looks at the environment first; the existing-library branch runs step 0 first; the new-library branch skips it).
-- One request asking for intake and archive: do the intake first. With delivery = direct there is nothing to archive afterwards. With delivery = zip, wait until the user confirms the upload, then run archive mode (or let the user's inbox script do it if _kb.json has an inbox entry).
+- Init and getting started: read references/init.md and follow it (getting started looks at the environment first; it sets up new libraries only).
+- One request asking for intake and archive: do the intake; there is nothing to archive afterwards (references/archive.md).
 
 This skill holds the process. The rules live in each library's own spec. Partitions, topics, terms and thresholds are always read from the spec; never write them from memory or from this file. Differences between libraries live only in _kb.json and _kb-params.md.
 
@@ -28,7 +28,7 @@ Libraries share one process. Picking the wrong one writes material into the wron
 
 1. Load the registry (references/config.md). If a library ID, label, folder ID or path is named in the request or the project instructions, use that library. No registry, or no library in it: follow references/config.md (init mode).
 2. Otherwise match the material against each library's scope. If exactly one fits, propose it in one line and continue only when the user agrees or the request already made it clear; if none or several fit, ask in one sentence which library to use. Never default.
-3. Read the backend file of its type (references/backend-gdrive.md or references/backend-github.md), then read _kb.json and _kb-params.md from the library root. A missing _kb.json or _kb-params.md: stop and offer init mode (existing-library branch).
+3. Read references/backend-github.md and bring the checkout up to date as it says (kbgit.py sync, once at the start of this task), then read _kb.json and _kb-params.md from the library root. A missing _kb.json or _kb-params.md: stop and say the library is completed by hand in its repository (references/init.md).
 4. Write the first line of the reply: Library: <label>. From here on, search and write only inside that library.
 5. Unfinished intake: when a batch run of this conversation has pending batches (references/batches.md) and the request is not already "continue intake", a request with new material goes to batches.md, "A run is already open".
 
@@ -46,14 +46,14 @@ You file and judge; you do not advise, recommend or evaluate. These rules apply 
 6. The file name is the version key. A new version of the same material must have exactly the same file name as the old one; that is how older versions get archived.
 7. Different material must never share a name, or one of them will be archived by mistake. When rule 6 and rule 7 cannot be told apart, take the safe side: rename to distinguish.
 8. Every judgement needs evidence. If you cannot quote the source text a step asks for, take the conservative conclusion.
-9. Read in full before you rewrite. Before rewriting any summary file, read the existing version completely; after rewriting, compare both with scripts/card_check.py and do not deliver until it passes. New or changed status-card items also go through the evidence check (scripts/evidence_check.py), whose findings the user sees before accepting.
+9. Read before you change, and change item by item. Before changing a summary file, read every item you change together with its section (the whole file when you restructure it or cannot place the change). Change it with scripts/card_patch.py (see "Rewrite check"), never by writing the file out again whole; a whole rewrite only when the user asks for a restructure, and then read it completely first. Do not deliver until card_check.py passes. New or changed status-card items also go through the evidence check (scripts/evidence_check.py), whose findings the user sees before accepting.
 10. Searches are capped. Each required file gets one search and one retry; do not keep trying new keywords.
 11. Never use as a source: anything in the archive folder; names starting with an underscore or with names.snapshot_prefix; names containing names.old_suffix plus a time stamp.
 12. Replies follow the library language and preferences.output (references/environment.md). YAML front matter and the Bases block in entity pages are file formats and keep their syntax.
 13. No wiki links in body text. Links appear only in front matter, in the basis lines of summary files, and in entity pages.
 14. Working notes stay out of knowledge files: cleaning results, term fixes, duplicate and trigger judgements appear only in the reply and the readme.
 15. The library folder and the material are different things (references/config.md, section 3). Material may come from any number of folders and files anywhere, chosen anew for every intake; read it where it is, and never move or change it. Never choose or suggest a folder for the user, never offer to change a library's folder because the material is elsewhere, and name the two to the user only in the words that section gives.
-16. An intake is finished only when its delivery is done: with direct delivery, round 2 ran and remote-log printed the run log (each item "ok" or its error); with zip, package.py zip built the zip and it was handed over. Until then never say the material was filed, ingested or delivered, and never give a number of files in the library: say which step the run reached (cleaned, conclusions written, preview shown and waiting for "confirm", ...), that nothing is in the library yet, and what is left. The counts in the final reply come from the run log or the zip, never from memory. In batch and fast mode this holds for each batch or item.
+16. An intake is finished only when its delivery is done: package.py delivered (each item "ok" or its error) and printed "pushed:" with the short hash. Until then never say the material was filed, ingested or delivered, and never give a number of files in the library: say which step the run reached (cleaned, conclusions written, preview shown and waiting for "confirm", ...), that nothing is in the library yet, and what is left. The counts in the final reply come from the run log, never from memory. In batch and fast mode this holds for each batch or item.
 
 ## Input checks
 
@@ -63,11 +63,22 @@ No material given: the user asks for intake but names no path and uploads or pas
 
 Many files: when the material is files or folders on disk and commands can run, plan the batches before reading any of it (references/batches.md). One batch: go on here as usual. More than one: follow batches.md.
 
+Batch scripts (full intake with Python, files on disk, uploads kept on disk or pasted text saved to a file): the mechanical work of Check 1 to step 4 for all items takes two calls, so do not run the per-step scripts below one item at a time.
+1. python3 scripts/prep.py scan-batch <file> [<file> ...] --library <root> --work <work> --start <n> --max-heading-len <Table D>. For each item it checks for a duplicate upload, converts (when convert is on) and cleans the body into <work>/body_<n>.md, reads the document date, lists the Table B wordings in the body, the Table E names and aliases it holds and the status-card lines naming them, and prints an outline; then a batch summary (duplicates, items to read as originals, pictures against the image limit). This is Check 1, step 2.1, the term search of 2.3, the hash part of step 4 and the two searches of references/convert.md.
+2. Judge each ready item from its card and only the parts of the body you need (step 1, 2.2, 2.3, step 3 for close-read items, the version relation of step 4). Write the confirmed term fixes and masks of an item to <work>/fixes_<n>.tsv and apply them at once (step 2.3).
+3. Write <work>/head_<n>.md for each item (metadata, section labels, key conclusions) and one <work>/decisions.json: [{"n": 1, "partition": "03", "topic": "...", "type": "...", "title": "...", "orig": "<source file name>", "source": "<original file, none for pasted text>", "same_version": false}, ...].
+4. python3 scripts/prep.py file-batch <work>/decisions.json --library <root> --work <work> --out <work>/out --backend <type> --max-len <Table D>. It checks every name first and writes nothing while any item needs a decision (too long, a name already in the index without same_version, two items with one name): settle each as step 4 says, fix decisions.json and run it again. Then it assembles every topic file into <work>/out and writes the updated file index there. This replaces step 1's meta.py name, step 4's index check, "Index and lists" and assemble.py below.
+Step 5, summary files, entity pages and the readme go on as below, into the same out folder.
+
 Conversion, before reading anything: when _kb.json convert.enabled is true (or the user asks for it in this request, and not when the user says not to convert this batch), convert the uploaded files with references/convert.md, which says which file to read for each item, when its outline is enough, and what to do with the pictures in them. Off, or without Python: read the originals as before.
 
 Check 2: find the summary files with find_by_name using the search keys (references/config.md).
-- Always read: spec, status card, file index.
-- Read when the params condition holds: the others.
+- Always read: spec, status card. A library on disk (GitHub) reads both through scripts, not whole:
+  - Spec: python3 scripts/kbconf.py spec <root>. It prints the spec without its revision notes, names their line ranges in their place, and ends with the tables it found by title. Read the revision notes by line number only for topic expansion (its item 4) or when params point to a precedent in them. A table you need that it did not find: read the whole spec file.
+  - Status card: python3 scripts/kbfind.py toc <root>/<status card> once for its sections, then for each item python3 scripts/kbfind.py find <root> "<wording>" [...] --file "<status card key>" --max-per-file 30 with up to 8 wordings of what the item is about: the Table E names, Table B standard terms and status-card lines its prep.py card lists, and the main subjects of its title and outline. Read further by line number when a block is cut off or a change needs its whole section. Read the whole card only for a restructure the user asked for, or when the finds already print most of it.
+  Without Python, or not on disk: read both whole.
+- The file index: when the library root is on disk (GitHub), copy it into the work folder for the scripts and do not read it; the scripts check names and hashes in it, and a grep finds a row when you need one. Otherwise read it too.
+- Read when the params condition holds: the others. On disk, the change log is read the same way as the status card: its opening lines and the entries next to the new one (hard rule 9), found with kbfind.py find --file "<change log key>", not the whole file.
 - When you write a summary file back, use the name found in the library; use the configured name only if none was found, and mention any mismatch in the delivery note.
 - Step 4 may read up to two more files with the same name for comparison.
 
@@ -99,7 +110,7 @@ Applies when material is in scope but no topic in Table A fits. Not for items th
 1. Look again first. If a topic added earlier in this run, or a close one, fits, use it. Items of the same kind in one batch get one new topic between them, not one each.
 2. Pick the partition. Never add a partition number. Choose the partition whose description is closest; if none is close, use the fallback partition from _kb.json (partitions.fallback). If no fallback is set, use the partition with the broadest scope and say in the delivery note which one you chose and that a fallback should be set. Do not pause.
 3. Write the topic as a category that covers similar material, with examples in brackets if helpful, never the name of one document. Follow how Table A already words topics and the precedents in params. Append in the existing structure without changing columns: if topics are a running description per partition, append a phrase to it; if there is one row per topic, add a row after the partition's last row and fill the other columns the way the table does.
-4. Rewrite the spec. Read it in full, rewrite it whole, raise the version by one minor step (v5.2 -> v5.3, v3 -> v3.1) and set the last-updated date to today. Add a revision note in the spec's existing style (precedent in params, if any): which partition, the new topic, the source file name, why that partition, and "no partition number added". If the spec has no revision notes yet, add a line "Revision:" under the version line. One delivery rewrites the spec once and raises the version once, even with several expansions or new entities. Run card_check.py on the old and new spec as in "Rewrite check", with the changed Table A rows and version line in the change list. Deliver the new spec and list it in the readme's updated-files section.
+4. Change the spec. Read Table A, the version and date lines and the revision notes; add the topic with card_patch.py (an insert after the partition's last row, or a replace of its description), raise the version by one minor step (v5.2 -> v5.3, v3 -> v3.1) and set the last-updated date to today (set_field). Add a revision note in the spec's existing style (precedent in params, if any): which partition, the new topic, the source file name, why that partition, and "no partition number added". If the spec has no revision notes yet, add a line "Revision:" under the version line. One delivery changes the spec once and raises the version once, even with several expansions or new entities: put them all into one patch. card_patch.py --check runs card_check.py on the old and new spec, as in "Rewrite check". Deliver the new spec and list it in the readme's updated-files section.
 5. File the material under the new topic through steps 1 to 5.
 6. Report it. The readme's change section and the delivery note list "Topics added this run (please review)": partition, new topic, source material, reason, and that the user can move it to another partition or undo it. Never expand silently.
 7. Expansion changes only topic descriptions, never the partition range, so nothing else needs updating.
@@ -117,7 +128,7 @@ Without Python: do the five actions by eye and mark the result line "manual".
 
 2.3 Term fixes: go through Table B one entry at a time, never with a bulk regex. python3 scripts/meta.py terms <spec> <work>/body_<n>.md lists every line holding a Table B original wording; without Python, search the body file for each entry with your search tool. Check the context of each hit to confirm it is the term; the body need not be read through for this.
 
-Make the changes of 2.2 and 2.3 in the body file with your edit tool, one place at a time; never write the body file out again whole. Record each change: original -> fixed -> section heading. None: "Term fixes: none".
+Make the changes of 2.2 and 2.3 in the body file, each one a place you confirmed in its context; never a bulk regex, and never write the body file out again whole. With Python, put every confirmed change of an item into <work>/fixes_<n>.tsv, one row per place (line<TAB>original<TAB>fixed, a fourth column picks the occurrence when the line holds the wording more than once; "mask" as the fixed text masks class-A data to the last keep_last characters), and run python3 scripts/meta.py apply <work>/body_<n>.md <work>/fixes_<n>.tsv --keep-last <keep_last>: it writes them all at once, refuses every row that does not fit before writing anything, and prints the record lines. Without Python, use your edit tool one place at a time. Record each change: original -> fixed -> section heading (a mask without its original). None: "Term fixes: none".
 
 ## Step 3: key conclusions
 
@@ -161,21 +172,30 @@ Disposition, one line per item before the overall decision:
 
 Overall decision, one of three:
 - No trigger: deliver the new files and the updated index; say "No summary rewrite this run".
-- Trigger: read in full and rewrite the status card and the change log (params may add others). In YAML mode, if the material links to a core entity, also update that entity page's overview (entity-yaml.md). First list the changes: "Item X: <old wording> -> <new wording>", deletions as "Delete item X: <old wording> (reason)", old wording copied exactly. Then run the rewrite check and copy its self-check lines into the reply.
-- Open items only: no class triggers, but the material settles an open item or creates one. Rewrite only that list (name in params).
+- Trigger: change the status card and the change log item by item (params may add others): read the items concerned and their sections, and of the change log its opening lines and the entries next to the new one (hard rule 9). In YAML mode, if the material links to a core entity, also update that entity page's overview (entity-yaml.md). First list the changes: "Item X: <old wording> -> <new wording>", deletions as "Delete item X: <old wording> (reason)", old wording copied exactly. Then make the changes with the rewrite check below and copy its self-check lines into the reply.
+- Open items only: no class triggers, but the material settles an open item or creates one. Change only that list (name in params).
 
 ## Rewrite check
 
-Compare old and new for every summary file rewritten in full (status card, change log, open items, glossary, updated entity pages, a spec rewritten for expansion or new entities). Save the old version read from the library as <work>/old_<name>, the change list as <work>/changes_<name>.txt (one change per line; empty if none), then:
+Every summary file that changes (status card, change log, open items, glossary, updated entity pages, a spec changed for expansion or new entities) is changed by script and checked against its old version. Copy the current version from the library to <work>/old_<name> (a GitHub library: a plain file copy, nothing to read), write the changes to <work>/patch_<name>.json and run:
 
-  python3 scripts/card_check.py <work>/old_<name> <out>/<name> --changes <work>/changes_<name>.txt
+  python3 scripts/card_patch.py apply <work>/old_<name> <work>/patch_<name>.json --out <out>/<name> --changes <work>/changes_<name>.txt --check
+
+The patch is a JSON list, one object per change:
+  {"op": "replace", "old": "<line(s) copied exactly>", "new": "<new wording>"}
+  {"op": "delete", "old": "<line(s)>", "reason": "<why>"}
+  {"op": "insert_after", "anchor": "<line(s)>", "new": "<text>"}   (also insert_before)
+  {"op": "set_field", "field": "<last updated, version, entries…>", "value": "<value>"}
+Copy "old" and "anchor" exactly from the file, as whole lines; when a line occurs more than once, take the line before or after along. The script writes nothing when any change does not fit (it says which and why): copy the wording again and rerun. It writes the new file, the change list and runs card_check.py in the same call. The "Item X: <old wording> -> <new wording>" lines you show the user are the same changes.
+
+A whole rewrite (hard rule 9: only a restructure the user asked for): write the new file yourself, write the change list as <work>/changes_<name>.txt (one change per line: Item X: [old] -> [new], Delete item X: [old] (reason)), then python3 scripts/card_check.py <work>/old_<name> <out>/<name> --changes <work>/changes_<name>.txt.
 
 It checks that every old item is still there or explained in the change list, that the new body is at least 70% of the old, and that entity-page type, entity type, title and aliases were not lost. A non-zero exit means fail: restore what it lists, or record the change honestly, and run it again. Never lower --min-ratio or edit the old file to pass. A large cut the user asked for: ask first, then use --min-ratio and say so in the delivery note.
 Without Python: compare item by item yourself and mark the delivery note "not script-checked".
 
 ## Evidence check
 
-Every new or changed status-card item must carry its values exactly as the basis file writes them. Before the change list is shown (consolidation) or the status card is delivered (full intake), write the new status card to <work>/draft_<card name>, copy the basis file of every new or changed item into <work>/sources/ (the new material from this run, and library files read with the backend file), then:
+Every new or changed status-card item must carry its values exactly as the basis file writes them. Before the change list is shown (consolidation) or the status card is delivered (full intake), write the new status card to <work>/draft_<card name> (card_patch.py apply ... --out <work>/draft_<card name>, without --check; the same patch then goes into the out folder), copy the basis file of every new or changed item into <work>/sources/ (the new material from this run, and library files read with the backend file), then:
 
   python3 scripts/evidence_check.py <work>/draft_<card name> --sources <work>/sources --item <n> [--item <n> ...]
 
@@ -190,7 +210,7 @@ The file index is rewritten every run, by script:
   python3 scripts/index_tool.py write  <work>/<index name> --out <out>/<index name> --date YYYY-MM-DD
 Pass --file whenever there is an original file; the hash goes in the third column. Without one, leave it out (update then clears the old hash, which no longer matches). Older rows without a hash are not back-filled. write sorts by name, updates the entry count and date, adds the hash column header when needed and keeps non-entry lines. Duplicate uploads, out-of-scope items and mostly class-A material get no index row.
 
-Glossary and issue list: read and rewrite only when something is added; categories are in params. Record, never change source text.
+Glossary and issue list: change only when something is added, with card_patch.py (an insert after the last entry of its category); categories are in params. Record, never change source text.
 
 ## Failures
 
@@ -214,12 +234,11 @@ It writes the head, one blank line and the body file as it is, and refuses an ex
 
 Write everything to <work>/out/. Entity pages go to <work>/out/<entities_dir>/, the only allowed subfolder. The output always holds: the new or updated topic files, the file index and the readme (names.readme); plus any rewritten summary files (including a spec rewritten for expansion or new entities) and entity pages. Never include archived files, old copies or delete lists.
 
-Readme sections are in params. In YAML mode the change section lists new entities and updated entity pages.
+Readme sections are in params. In YAML mode the change section lists new entities and updated entity pages. A new entity page carries its identity line (entity-yaml.md); its related-files list is left to package.py, which refreshes the lists of every page the delivery changes.
 
 Deliver by the library's delivery setting:
-- zip (only when _kb.json sets it, or has an inbox entry): python3 scripts/package.py zip <work>/out <work>/<label>_intake_YYYYMMDD.zip --library <work>/_kb.json --max-name-len <Table D>, then hand over that one zip, however few files it holds. End the delivery note with: upload the zip and its files to the library root (entity pages to the entities folder, not the readme), then say "archive" to move older versions. If _kb.json has an inbox entry, say instead to upload the zip as is to the inbox folder.
-- direct (the default): the rounds in the backend file (references/backend-gdrive.md or references/backend-github.md): preview, confirm, deliver. Old versions move to the archive folder in the same step (a GitHub library overwrites them in place and commits), so nothing is left for the user to upload or archive.
+- direct: the rounds in references/backend-github.md: preview, confirm, deliver. A new version overwrites the old one in place (git history keeps it), and the delivery commits and pushes in the same call, so nothing is left for the user to upload or archive.
 
 After delivery (hard rule 16), say in a few sentences what was processed, the trigger decision and anything that needs attention; list "Topics added this run (please review)" if any. With conversion on, include its line (references/convert.md). Do not repeat the readme.
 
-Intake only creates files. It never deletes or moves existing library files, except the archive step of direct delivery (the in-place overwrite in a GitHub library) and the second round of quick-note filing, both after the user confirms. Batch mode also writes and updates its progress file (names.batch_plan) in the work folder (references/batches.md).
+Intake only creates files. It never deletes or moves existing library files, except the in-place overwrite of a new version during delivery and the second round of quick-note filing, both after the user confirms. Batch mode also writes and updates its progress file (names.batch_plan) in the work folder (references/batches.md).

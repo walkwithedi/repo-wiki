@@ -83,7 +83,7 @@ source_images: 数字
 
 9. 实体页
 
-表 E 的每个实体在实体文件夹中有一页，前置元数据含 type: "entity"、entity_type、core 和 aliases，并带一个 Obsidian Bases 查询，列出所有链接到它的文件（排除归档与实体文件夹）。
+表 E 的每个实体在实体文件夹中有一页，前置元数据含 type: "entity"、entity_type、core 和 aliases；标题下一句身份说明；一份由 kb-ingest 维护的相关文件清单（链接到它的议题文件，新的在前）；以及一个 Obsidian Bases 查询，列出所有链接到它的文件（排除归档与实体文件夹）。
 核心实体另有由 kb-ingest 维护的概览一节：每句注明来源链接；现状只引用状态卡；只在入库材料链接到该实体且触发时更新。
 
 10. 收录范围

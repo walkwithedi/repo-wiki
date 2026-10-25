@@ -16,7 +16,7 @@ This mode groups notes by partition and topic into material, files that material
 
 1. Choose the library. If the user named one, use step 0. If not, look at the notes folder of every registered library: if only one has notes, use it; if several do, take the one with most notes and tell the user the others are waiting. One library and one delivery per run.
 2. List the notes (list, paging until done). No folder or no notes: "<library>: no quick notes waiting", stop. More than 40: take the oldest 40 and say the rest wait for next time.
-3. Avoid filing twice: for each note, find_by_text in the library root with the note's file name without .md. A hit on a file whose body contains "<note_marker> <note file name>" means "filed but not moved": skip that note and list it with the library file that contains it. If the search fails, process the note and mark it "not checked for duplicates". If every note is already filed, deliver nothing; list them and ask whether to move them.
+3. Avoid filing twice: for each note, find_by_text in the library root with the note's file name without .md. A hit on a file whose body contains "<note_marker> <note file name>" means "filed but not moved": skip that note and list it with the library file that contains it. If the search fails, process the note and mark it "not checked for duplicates". If every note is already filed, deliver nothing; list them and ask whether to move them. A GitHub library: one search for all of them, grep -l -F -f <work>/note-names.txt <root>/*.md with one note file name (without .md) per line, then open only the files it lists.
 4. Read the remaining notes and the summary files and spec (SKILL.md input checks).
 5. Place each note by Table A (the suggested topic in its header is only a hint). One line each:
    Note: <file> -> <partition topic> / Expansion: partition XX gets topic "…" (reason) / Out of scope (spec clause)
@@ -42,6 +42,7 @@ When the user replies "notes are filed" (or similar):
 1. ensure_folder <notes_dir>/<notes_done_dir>.
 2. Which notes: if this conversation has the round 1 lists, use them. If not (a new conversation), list every note in the notes folder and run the step 3 search on each; move only notes whose marker line is found in a library file. Leave the rest.
 3. move_rename each one into the filed folder; keep its name.
-4. One line: moved N, failed M (with reasons).
+4. A GitHub library: one commit for all moves, python3 scripts/kbgit.py commit <root> --title "<Quick notes filed: N>" with a --path for the old and the new path of every moved note.
+5. One line: moved N, failed M (with reasons), and the short hash for a GitHub library.
 
 If the user says the intake failed, move nothing; fix the cause and deliver again.

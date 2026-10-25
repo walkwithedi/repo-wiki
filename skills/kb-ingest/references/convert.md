@@ -25,7 +25,7 @@ Read the full text, or the sections concerned by their line numbers, when any of
 - the outline does not settle partition, topic, type or the version relation (steps 1 and 4);
 - its pictures are to be read (section 2).
 
-Two searches are required for every file handled from its outline, in its converted text, with your search tool, never by reading it through:
+Two searches are required for every file handled from its outline, in its converted text, with your search tool, never by reading it through (prep.py scan-batch does both for every item and prints the hits on its card: the Table E names and aliases in the body and the status-card lines naming them; then only add searches for status-card subjects that are not entities):
 - Entities: search every Table E name and alias. Each hit is a candidate for the entity fields, mapped as entity-yaml.md says, together with the entities the outline shows.
 - Status card: search the subjects of the status-card items (names of systems, projects, bodies, indicators, deadlines). Read the section around every hit before judging the triggers. Only when nothing hits is there no trigger from this file.
 

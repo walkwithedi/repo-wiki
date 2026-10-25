@@ -9,7 +9,7 @@ Intake has two parts that need very different effort. Placing, naming, de-duplic
 
 ## Before the first item
 
-1. Step 0, Check 2 (spec, status card, file index; other summary files only when params require them for steps 1 to 4) and Check 3 and 4 as in SKILL.md. The status card is read only to recognise names and terms; it is not compared with the material now.
+1. Step 0, Check 2 (spec, status card, file index; other summary files only when params require them for steps 1 to 4) and Check 3 and 4 as in SKILL.md. The status card is read only to recognise names and terms; it is not compared with the material now. On disk that is the toc and one kbfind.py find per item that Check 2 describes, run after the item's scan with the names and subjects on its card; never the whole card.
 2. Make a work folder and a run file path in it: <work>/run.json (package.py starts it on first use).
 3. Confirm once. Say in one line how many items will be filed, that each is written into the library as soon as it is ready and is searchable at once, and that key conclusions and status-card changes follow at consolidation, which shows every change for review first. Ask once, as a choice: Start (recommended) / Cancel. In Chinese: 「将逐个收录 <n> 个文件，每个处理完就写进知识库、立刻可查；关键结论和状态卡的改动留到整合时统一给你确认。开始吗？」 with 开始 / 取消. In batch mode the plan's Start is this confirmation. A single item still gets the question; "Start" is the confirmation for the direct-delivery preview of every item in this run, including same-name new versions, whose old copy moves to the archive folder as usual.
 
@@ -30,13 +30,12 @@ Number the items 1, 2, 3 in the order they are filed. Where commands run:
    Decide here whether the item is on the params close-reading list (by its type and the card; no reading for this).
 4. Head: write <work>/head_<n>.md with the metadata only (front matter per entity-yaml.md, or the text header of params) and any section labels params put before the body. No key conclusions.
 5. File:
-   python3 scripts/prep.py file --n <n> --library <root> --work <work> --partition <nn> --topic "<topic>" --type "<type>" --title "<short title>" --orig "<source file name>" --source <original file> [--close-read] [--same-version] --backend gdrive --max-len <Table D>
+   python3 scripts/prep.py file --n <n> --library <root> --work <work> --partition <nn> --topic "<topic>" --type "<type>" --title "<short title>" --orig "<source file name>" --source <original file> [--close-read] [--same-version] --backend github --max-len <Table D>
    - Exit 3 with a file-name hit: judge step 4 with the evidence it asks for. Next version of that file: run again with --same-version (the change log entry waits for consolidation). Different material, or not enough evidence: rename to distinguish, run again with the new short title.
    - Exit 3 with "too long": shorten the short title and run again.
    It assembles the topic file into <work>/out_<n>/, adds the pending mark for a close-read item, updates the index copy and the consolidation queue copy in the work folder, and puts both and a short readme into <work>/out_<n>/.
 6. Deliver <work>/out_<n>/ at once:
-   - direct: remote-preview with the same --run, carry out the plan with the connector (an item marked "updated again in this run" is written over the named copy, not archived), then remote-log with the same plan; append its lines to the run log and readme when they exist already.
-   - zip: no per-item delivery. Build every item, merge the out_<n> folders into one <work>/out (the last index and queue copies win), and pack it once at the end.
+   package.py preview <work>/out_<n> --library <root> --plan <work>/plan_<n>.json --in-place --run <work>/run.json --confirmed --commit "<Intake: file name>" delivers, commits and pushes the item in one call (references/backend-github.md).
 7. One progress line, nothing else for this item:
    <n>/<total> <file name>: filed, searchable now (consolidation pending)
    In Chinese: <n>/<总数> <文件名>：已入库，可查询（待整合）

@@ -108,7 +108,7 @@ Duplicate and trigger judgements go into the readme only, never into knowledge f
 
 8. Entity pages
 
-Each Table E entity has a page in the entities folder with type: "entity", entity_type, core and aliases in its front matter, and an Obsidian Bases query listing every file that links to it (archive and entities folders excluded).
+Each Table E entity has a page in the entities folder with type: "entity", entity_type, core and aliases in its front matter, a one-sentence identity line under its title, a related-files list kept by kb-ingest (every topic file linking it, newest first) and an Obsidian Bases query listing every file that links to it (archive and entities folders excluded).
 Core entities also have an Overview section maintained by kb-ingest: every sentence cites a source link; where it disagrees with the status card, the status card wins; it is updated only when filed material links to the entity and triggers.
 This library has no core entities yet.
 

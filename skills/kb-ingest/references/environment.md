@@ -4,7 +4,7 @@ These skills follow the Agent Skills format and run in any assistant that suppor
 
 ## Work and output folders
 
-- Work folder: a scratch folder for copies of summary files, change lists and plan files. Use your environment's temporary or scratch directory and create work/ and out/ inside it (in claude.ai this is usually /home/claude/; in a coding agent, a temporary directory outside the library). When the request names a work folder ("Work folder: <path>", "工作文件夹：<路径>"), use that folder and create work/ and out/ inside it.
+- Work folder: a scratch folder for copies of summary files, change lists and plan files. Use your environment's temporary or scratch directory and create work/ and out/ inside it (a temporary directory outside the library). When the request names a work folder ("Work folder: <path>", "工作文件夹：<路径>"), use that folder and create work/ and out/ inside it.
 - Never use the library root as the work folder.
 - Handing a file to the user: use whatever your environment offers (a download link or file card, or the path on disk). With direct delivery there is nothing to hand over; the files land in the library.
 
@@ -17,7 +17,7 @@ Paths such as scripts/batch_plan.py are relative to this skill's folder, not to 
 | Missing | What to do |
 | --- | --- |
 | Cannot run Python | Do each script's job by hand, following the "Without Python" note at that step, and mark the result "not script-checked" in the delivery note. |
-| Cannot reach the library (no Drive tool, no checkout of the GitHub repository, path not found) | Stop. Say which connector or path is missing. Never answer from memory. |
+| Cannot reach the library (no checkout of the GitHub repository, path not found) | Stop. Say which repository or path is missing. Never answer from memory. |
 | Cannot write files | kb-note: show the finished note in the reply so the user can save it. kb-ingest: show every output file in full. |
 | No registry | Offer setup once, as references/config.md describes; never guess a library location. |
 
