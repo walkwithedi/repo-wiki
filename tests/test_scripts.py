@@ -64,8 +64,7 @@ class KbconfTest(Tmp):
         self.assertFalse(kbconf.DEFAULTS["sources"]["keep"])
         cfg = kbconf.merge(kbconf.DEFAULTS, {"sources": {"keep": True}})
         self.assertTrue(kbconf.keeps_sources(cfg))
-        self.assertFalse(kbconf.keeps_sources(cfg, "gdrive"))
-        self.assertFalse(kbconf.keeps_sources(dict(cfg, delivery="zip")))
+        self.assertFalse(kbconf.keeps_sources(cfg, "github"))
         self.assertFalse(kbconf.keeps_sources(kbconf.DEFAULTS))
 
     def test_init_sources_by_preset(self):
@@ -74,7 +73,6 @@ class KbconfTest(Tmp):
         out = run(script, "write", "--root", self.p("work"), "--preset", "work", *base).stdout
         self.assertIn("keep originals in the library: on", out)
         self.assertTrue(json.loads(read(self.p("work", "_kb.json")))["sources"]["keep"])
-        self.assertTrue(os.path.isdir(self.p("work", "Sources")))
         run(script, "write", "--root", self.p("life"), "--preset", "life", *base)
         self.assertFalse(json.loads(read(self.p("life", "_kb.json")))["sources"]["keep"])
         self.assertFalse(os.path.exists(self.p("life", "Sources")))
@@ -118,7 +116,10 @@ class KbconfTest(Tmp):
         problems = " ".join(kbconf.check_registry(reg))
         self.assertIn("used twice", problems)
         self.assertIn("local is not supported", problems)
-        self.assertIn("must be gdrive or github", problems)
+        self.assertIn("must be github", problems)
+        reg["libraries"][1]["backend"] = {"type": "gdrive", "root": "x"}
+        self.assertIn("gdrive is not supported: these skills serve GitHub libraries only (Google Drive libraries: "
+                      "use walkwithedi/drive-wiki)", " ".join(kbconf.check_registry(reg)))
         self.assertIn("scope", problems)
 
     def test_registry_github(self):
@@ -349,28 +350,6 @@ class EvidenceCheckTest(Tmp):
         self.assertEqual(p.returncode, 2)
 
 
-class ArchivePlanTest(Tmp):
-    def test_plan_and_log(self):
-        files = [
-            {"id": "1", "title": "02_A.md", "fileSize": 10, "createdTime": "2026-10-01T00:00:00Z", "modifiedTime": "2026-10-01T00:00:00Z", "parentId": "root"},
-            {"id": "2", "title": "02_A.md", "fileSize": 12, "createdTime": "2026-10-05T00:00:00Z", "modifiedTime": "2026-10-05T00:00:00Z", "parentId": "root"},
-            {"id": "3", "title": "02_B.md", "fileSize": 5, "createdTime": "2026-10-05T00:00:00Z", "modifiedTime": "2026-10-01T00:00:00Z", "parentId": "root"},
-            {"id": "4", "title": "02_B.md", "fileSize": 5, "createdTime": "2026-10-01T00:00:00Z", "modifiedTime": "2026-10-05T00:00:00Z", "parentId": "root"},
-            {"id": "5", "title": "02_C_old20260101000000.md", "createdTime": "2026-10-01T00:00:00Z", "modifiedTime": "2026-10-01T00:00:00Z", "parentId": "root"},
-        ]
-        cand = self.p("c.json")
-        write(cand, json.dumps(files))
-        out = run("archive_plan.py", "--tz", "+08:00", "plan", "--files", cand, "--base-time", "2026-10-10 12:00:00",
-                  "--folder-name", "Life", "--scope", "test", "--out", self.p("plan.json")).stdout
-        self.assertIn("Older copies to archive: 1", out)
-        self.assertIn("02_A_old20261010120000.md", out)
-        self.assertIn("Needs a human decision", out)
-        write(self.p("r.json"), json.dumps({"1": "ok"}))
-        out = run("archive_plan.py", "log", "--plan", self.p("plan.json"), "--results", self.p("r.json"),
-                  "--end-time", "2026-10-10 12:05:00", "--out", self.p("log.txt")).stdout
-        self.assertIn("Log file name: _run-log_20261010_120500.txt", out)
-        self.assertIn("Archived 1, failed 0.", out)
-
 
 class PackageTest(Tmp):
     def setUp(self):
@@ -384,21 +363,6 @@ class PackageTest(Tmp):
         write(os.path.join(self.out, "01_File-Index.md"), "index\n")
         write(os.path.join(self.out, "README.txt"), "readme\n")
         write(os.path.join(self.out, "Entities", "Self.md"), "entity\n")
-
-    def test_zip(self):
-        dest = self.p("x.zip")
-        run("package.py", "zip", self.out, dest, "--library", self.lib)
-        with zipfile.ZipFile(dest) as z:
-            self.assertEqual(sorted(z.namelist()), ["01_File-Index.md", "02_Health_Report_A.md",
-                                                    "02_Health_Report_B.md", "Entities/Self.md", "README.txt"])
-
-    def test_zip_rejects_bad_output(self):
-        write(os.path.join(self.out, "deep", "x.md"), "x\n")
-        write(os.path.join(self.out, "02_X_old20260101000000.md"), "x\n")
-        p = run("package.py", "zip", self.out, self.p("x.zip"), "--library", self.lib, check=False)
-        self.assertEqual(p.returncode, 3)
-        self.assertIn("folder not allowed", p.stdout)
-        self.assertIn("must not be delivered", p.stdout)
 
     def test_preview_and_deliver(self):
         plan = self.p("plan.json")
@@ -419,6 +383,7 @@ class PackageTest(Tmp):
         os.makedirs(os.path.dirname(plan))
         out = run("package.py", "preview", self.out, "--library", self.lib, "--plan", plan, "--in-place").stdout
         self.assertIn("Overwritten in place (git history keeps the old version): 1", out)
+        self.assertIn("  = 02_Health_Report_A.md (+1 -1 lines)", out)
         self.assertNotIn("Archive/", out)
         run("package.py", "deliver", "--plan", plan)
         self.assertEqual(read(os.path.join(self.lib, "02_Health_Report_A.md")), "new version\n")
@@ -487,50 +452,10 @@ class PackageTest(Tmp):
         with open(os.path.join(self.lib, "Sources", "02_Health_Report_C.pdf"), "rb") as f:
             self.assertEqual(f.read(), b"new c")
 
-    def test_zip_refuses_originals(self):
-        self.originals()
-        write(os.path.join(self.out, "Sources", "deep", "x.pdf"), "x")
-        p = run("package.py", "zip", self.out, self.p("x.zip"), "--library", self.lib, check=False)
-        self.assertEqual(p.returncode, 3)
-        self.assertIn("delivered only into a local library that keeps originals", p.stdout)
-        p = run("package.py", "preview", self.out, "--library", self.lib, "--plan", self.p("plan.json"), check=False)
-        self.assertEqual(p.returncode, 3)
-        self.assertIn("Sources/ must not contain folders: deep", p.stdout)
-
-    def test_remote_preview_and_log(self):
-        existing = self.p("existing.json")
-        write(existing, json.dumps([
-            {"rel": "02_Health_Report_A.md", "id": "id-old-2", "modified": "2026-10-02T00:00:00Z"},
-            {"rel": "02_Health_Report_A.md", "id": "id-old-1", "modified": "2026-10-01T00:00:00Z"}]))
-        plan = self.p("plan.json")
-        out = run("package.py", "remote-preview", self.out, "--library", os.path.join(self.lib, "_kb.json"),
-                  "--existing", existing, "--plan", plan).stdout
-        self.assertIn("(Google Drive)", out)
-        self.assertIn("+ 02_Health_Report_B.md", out)
-        self.assertIn("+ Entities/Self.md", out)
-        p = json.loads(read(plan))
-        a = next(i for i in p["items"] if i["rel"] == "02_Health_Report_A.md")
-        self.assertEqual([o["id"] for o in a["archive"]], ["id-old-1", "id-old-2"])
-        names = [o["archive_as"] for o in a["archive"]]
-        self.assertTrue(all(n.startswith("02_Health_Report_A_old") and n.endswith(".md") for n in names))
-        self.assertEqual(len(set(names)), 2)
-        self.assertEqual(next(i for i in p["items"] if i["rel"] == "Entities/Self.md")["folder"], "entities")
-        self.assertNotIn("README.txt", [i["rel"] for i in p["items"]])
-        results = self.p("results.json")
-        write(results, json.dumps({i["rel"]: "ok" for i in p["items"]}))
-        out = run("package.py", "remote-log", "--plan", plan, "--results", results).stdout
-        self.assertIn("Written 4, failed 0.", out)
-        self.assertIn("Run log file name: _run-log_", out)
-        write(results, json.dumps({"02_Health_Report_B.md": "permission denied"}))
-        p2 = run("package.py", "remote-log", "--plan", plan, "--results", results, check=False)
-        self.assertEqual(p2.returncode, 3)
-        self.assertIn("failed  | 02_Health_Report_B.md | permission denied", p2.stdout)
-
     def test_default_delivery(self):
-        self.assertEqual(kbconf.default_delivery({}, "gdrive"), "direct")
-        self.assertEqual(kbconf.default_delivery({}, "local"), "direct")
-        self.assertEqual(kbconf.default_delivery({"inbox": {"folder": "x"}}, "gdrive"), "zip")
-        self.assertEqual(kbconf.default_delivery({"delivery": "zip"}, "local"), "zip")
+        self.assertEqual(kbconf.default_delivery({}, "github"), "direct")
+        self.assertEqual(kbconf.default_delivery({"inbox": {"folder": "x"}}, "github"), "direct")
+        self.assertIn("delivery must be direct", " ".join(kbconf.validate({"schema": 1, "delivery": "zip"})))
 
     def test_deliver_detects_change(self):
         plan = self.p("plan.json")
@@ -685,7 +610,7 @@ class InitLibraryTest(Tmp):
         root = self.p("kb", "life")
         out = run("init_library.py", "write", "--root", root, "--preset", "life", "--language", "zh",
                   "--timezone", "+08:00", "--scope", "我和家人", "--date", "2026-10-10").stdout
-        self.assertIn("result: written 8 files and 3 folders", out)
+        self.assertIn("result: written 8 files and 0 folders", out)  # git keeps no empty folders
         cfg = kbconf.load_library(root)
         self.assertEqual((cfg["label"], cfg["language"], cfg["timezone"]), ("生活", "zh", "+08:00"))
         self.assertTrue(cfg["sensitivity"]["enabled"])
@@ -698,8 +623,6 @@ class InitLibraryTest(Tmp):
         for k in kbconf.SUMMARY_KEYS:
             self.assertNotIn("{{", read(os.path.join(root, names[k])))
         self.assertIn("Entries: 0", read(os.path.join(root, names["index"])))
-        for d in ("archive_dir", "notes_dir", "entities_dir"):
-            self.assertTrue(os.path.isdir(os.path.join(root, names[d])))
 
     def test_work_preset_follows_language(self):
         for lang, heading, field, index in (("zh", "表 A（Table A）：分区与主题", "entities:", "条目数：0"),
@@ -725,20 +648,14 @@ class InitLibraryTest(Tmp):
         self.assertEqual(p.returncode, 3)
         self.assertEqual(os.listdir(root), ["notes.md"])
 
-    def test_render_for_upload(self):
-        out = run("init_library.py", "render", "--out", self.p("out"), "--preset", "work", "--language", "en",
-                  "--timezone", "UTC").stdout
-        self.assertIn("create the folders in the library: Archive, Quick-Notes, Entities", out)
-        self.assertEqual(len(os.listdir(self.p("out"))), 8)
-
     def test_register_and_instructions(self):
         reg = self.p("cfg", "kb-libraries.json")
         run("init_library.py", "register", "--registry", reg, "--id", "life", "--label", "Life",
-            "--scope", "me and my family", "--type", "gdrive", "--root", "life123")
+            "--scope", "me and my family", "--type", "github", "--root", "me/life")
         run("init_library.py", "register", "--registry", reg, "--id", "work", "--label", "Work",
-            "--scope", "team projects", "--type", "gdrive", "--root", "abc123")
+            "--scope", "team projects", "--type", "github", "--root", "me/work")
         p = run("init_library.py", "register", "--registry", reg, "--id", "work", "--label", "W",
-                "--scope", "x", "--type", "gdrive", "--root", "zzz", check=False)
+                "--scope", "x", "--type", "github", "--root", "me/zzz", check=False)
         self.assertEqual(p.returncode, 3)
         self.assertEqual([lib["id"] for lib in kbconf.load_registry(reg)["libraries"]], ["life", "work"])
         md = self.p("CLAUDE.md")
@@ -755,7 +672,7 @@ class InitLibraryTest(Tmp):
         self.assertIn("unchanged", out)
         block = run("init_library.py", "instructions", "--registry", reg, "--project-block").stdout
         self.assertIn("Knowledge base registry (kb-libraries.json):", block)
-        self.assertIn('"root": "abc123"', block)
+        self.assertIn('"root": "me/work"', block)
 
     def test_every_preset_has_defaults(self):
         sys.path.insert(0, SCRIPTS)
@@ -764,17 +681,6 @@ class InitLibraryTest(Tmp):
         self.assertEqual(presets, sorted(il.PRESETS))
         for p in presets:
             self.assertEqual(sorted(il.PRESET_DEFAULTS[p]), sorted(il.LANGUAGES))
-
-    def test_drive_line(self):
-        out = run("init_library.py", "instructions", "--drive-folder", "1AbCdEfGhIjKlMnOpQ", "--language", "zh").stdout
-        self.assertIn("registry: Google Drive folder 1AbCdEfGhIjKlMnOpQ, file kb-libraries.json", out)
-        self.assertTrue(out.startswith("我有知识库"))
-        self.assertEqual(run("init_library.py", "instructions", "--drive-folder", "x y", check=False).returncode, 2)
-        sys.path.insert(0, SCRIPTS)
-        import init_library as il
-        text, what = il.upsert_line("a\n我有知识库：生活（x）。\n", il.drive_line("1AbCdEfGhIjKlMnOpQ", "zh"))
-        self.assertEqual(what, "updated")
-        self.assertEqual(text.count("我有知识库"), 1)
 
     def test_upsert_line(self):
         sys.path.insert(0, SCRIPTS)
@@ -797,8 +703,6 @@ class InitLibraryTest(Tmp):
         self.assertEqual(read(os.path.join(root, "README.md")), "# repo\n")
         other = self.p("repo2")
         write(os.path.join(other, "README.md"), "# repo\n")
-        self.assertEqual(run("init_library.py", "plan", "--root", other, "--preset", "work",
-                             check=False).returncode, 3)
         write(os.path.join(other, "notes.md"), "mine\n")
         self.assertEqual(run("init_library.py", "plan", "--root", other, "--preset", "work",
                              "--backend", "github", check=False).returncode, 3)
@@ -1075,3 +979,373 @@ class IntakeSettingsTest(Tmp):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def id_number(base="11010519900307123"):
+    """A made-up 18-digit ID number with a valid check digit, built here so no such number is written down."""
+    total = sum(int(c) * w for c, w in zip(base, kbconf.ID_WEIGHTS))
+    return base + "10X98765432"[total % 11]
+
+
+def card_number(prefix="6222" + "0" * 14):
+    return next(prefix + d for d in "0123456789" if kbconf.luhn_ok(prefix + d))
+
+
+LABEL = "口" + "令"  # a password label, joined here so the sample line is no real field
+
+
+class ClassATest(Tmp):
+    def test_scan(self):
+        text = (f"id {id_number()} card {card_number()}\norder 1234567890123456\n"
+                "grouped 6222 0210 0000 0000 001\n" + LABEL + ": abc123; code: 2026; 验证码=****56\n"
+                "phone 138" + "0" * 8 + "\n")
+        hits = kbconf.scan_class_a(text)
+        kinds = [(no, kind) for no, kind, _ in hits]
+        self.assertIn((1, "ID number"), kinds)
+        self.assertIn((1, "card number"), kinds)
+        self.assertIn((2, "16-19 digits (order or serial number?)"), kinds)
+        self.assertIn((3, "number in groups of four"), kinds)
+        self.assertIn((4, LABEL + " not masked"), kinds)
+        self.assertEqual(len([k for k in kinds if k[0] == 4]), 1)  # the starred code passes
+        self.assertFalse([k for k in kinds if k[0] == 5])  # 11 digits are not class-A here
+        self.assertEqual(hits[0][2], "*" * 14 + id_number()[-4:])
+        self.assertEqual(len([k for k in kinds if k[0] == 1]), 2)  # the ID is not reported again as digits
+
+    def test_cli(self):
+        write(self.p("a.md"), f"x {card_number()}\n")
+        write(self.p("b.md"), "clean\n")
+        p = run("kbconf.py", "scan-a", self.p("a.md"), self.p("b.md"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("a.md:1: card number: ", p.stdout)
+        self.assertNotIn(card_number(), p.stdout)
+        self.assertIn("no class-A", run("kbconf.py", "scan-a", self.p("b.md")).stdout)
+
+
+class MetaApplyTest(Tmp):
+    def test_apply_terms_and_mask(self):
+        body = self.p("work", "body_1.md")
+        write(body, f"# Plan\n\nAtlass starts. Atlass ends.\n\n## Money\n\nCard {card_number()} here.\n")
+        write(self.p("work", "fixes_1.tsv"), f"3\tAtlass\tAtlas\t2\n7\t{card_number()}\tmask\n")
+        out = run("meta.py", "apply", body, self.p("work", "fixes_1.tsv")).stdout
+        self.assertIn("Atlass -> Atlas -> Plan", out)
+        self.assertIn("line 7: masked, last 4 kept -> Money", out)
+        self.assertNotIn(card_number(), out)
+        text = read(body)
+        self.assertIn("Atlass starts. Atlas ends.", text)
+        self.assertIn("Card " + "*" * 15 + card_number()[-4:] + " here.", text)
+
+    def test_apply_refuses_without_change(self):
+        body = self.p("work", "body_1.md")
+        write(body, "one\ntwo\n")
+        write(self.p("f.tsv"), "1\tone\t1\n2\tthree\t3\n9\ttwo\t2\n")
+        p = run("meta.py", "apply", body, self.p("f.tsv"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("row 2: line 2 does not hold the original wording", p.stdout)
+        self.assertIn("row 3: line 9 is outside the body", p.stdout)
+        self.assertEqual(read(body), "one\ntwo\n")
+        write(self.p("lib", "_kb.json"), "{}")
+        write(self.p("lib", "b.md"), "one\n")
+        p = run("meta.py", "apply", self.p("lib", "b.md"), self.p("f.tsv"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("inside a library root", p.stdout)
+
+
+class PrepBatchTest(Tmp):
+    def setUp(self):
+        super().setUp()
+        self.lib = self.p("lib")
+        write(os.path.join(self.lib, "_kb.json"), json.dumps({"schema": 1, "label": "Work", "timezone": "UTC",
+                                                             "language": "en", "metadata": "text"}))
+        write(os.path.join(self.lib, "00_Spec.md"), SPEC_EN)
+        write(os.path.join(self.lib, "00_Status-Card.md"), "# Status\n\n1. Atlas goes live in May.\n2. Other.\n")
+        write(os.path.join(self.lib, "01_File-Index.md"),
+              "# File index\n\nFile name | Source file\n--- | ---\n02_Ops_memo_Old.md | old.docx\n")
+        write(os.path.join(self.lib, "02_Ops_memo_Old.md"), "old\n")
+        self.work = self.p("work")
+        self.src = self.p("material")
+        write(os.path.join(self.src, "a.md"), "# Kickoff\n\nProject Atlas and the Payments Gateway. Atlass.\n")
+        write(os.path.join(self.src, "b.txt"), "Budget notes, nothing else.\n")
+
+    def test_scan_batch(self):
+        out = run("prep.py", "scan-batch", os.path.join(self.src, "a.md"), os.path.join(self.src, "b.txt"),
+                  "--library", self.lib, "--work", self.work, "--start", "3").stdout
+        self.assertIn("=== Item 3: a.md ===", out)
+        self.assertIn("=== Item 4: b.txt ===", out)
+        self.assertIn("Atlass -> Atlas: 1 lines", out)
+        self.assertIn("  Project Atlas (Project Atlas): 1x", out)  # Atlass is no hit for Atlas, PA none in Payments
+        self.assertIn("  Payments Gateway (Payments Gateway): 1x", out)
+        self.assertIn("status card lines naming them: 1 (lines 3)", out)
+        self.assertIn("items: 2 | ready: 2 | duplicate uploads: 0", out)
+        self.assertTrue(os.path.isfile(os.path.join(self.work, "body_3.md")))
+        self.assertTrue(os.path.isfile(os.path.join(self.work, "body_4.md")))
+
+    def test_file_batch(self):
+        run("prep.py", "scan-batch", os.path.join(self.src, "a.md"), os.path.join(self.src, "b.txt"),
+            "--library", self.lib, "--work", self.work)
+        write(os.path.join(self.work, "head_1.md"), "Date: 2026-10-01\n\nKey conclusions\n- Atlas starts (source: Kickoff)\n")
+        write(os.path.join(self.work, "head_2.md"), "Date: 2026-10-02\n")
+        dec = self.p("work", "decisions.json")
+        items = [{"n": 1, "partition": "02", "topic": "Ops", "type": "memo", "title": "Kickoff", "orig": "a.md",
+                  "source": os.path.join(self.src, "a.md")},
+                 {"n": 2, "partition": "02", "topic": "Ops", "type": "memo", "title": "Old", "orig": "b.txt"}]
+        write(dec, json.dumps(items))
+        out = self.p("work", "out_b1")
+        p = run("prep.py", "file-batch", dec, "--library", self.lib, "--work", self.work, "--out", out, check=False)
+        self.assertEqual(p.returncode, 3)  # item 2 hits an existing name: nothing is written
+        self.assertIn("item 2: 02_Ops_memo_Old.md is in the index", p.stdout)
+        self.assertFalse(os.path.exists(out))
+        items[1]["same_version"] = True
+        write(dec, json.dumps(items))
+        p = run("prep.py", "file-batch", dec, "--library", self.lib, "--work", self.work, "--out", out)
+        self.assertIn("+ 02_Ops_memo_Kickoff.md (from a.md)", p.stdout)
+        self.assertIn("~ 02_Ops_memo_Old.md (from b.txt, same-name new version)", p.stdout)
+        self.assertIn("index: 1 added, 1 updated", p.stdout)
+        topic = read(os.path.join(out, "02_Ops_memo_Kickoff.md"))
+        self.assertTrue(topic.startswith("Date: 2026-10-01\n"))
+        self.assertIn("Project Atlas and the Payments Gateway", topic)
+        index = read(os.path.join(out, "01_File-Index.md"))
+        self.assertIn("02_Ops_memo_Kickoff.md", index)
+        self.assertIn("02_Ops_memo_Old.md | b.txt", index)
+        self.assertNotIn("Consolidation", " ".join(os.listdir(out)))
+        self.assertEqual(read(os.path.join(self.lib, "01_File-Index.md")).count("|"), 3)  # the library is untouched
+
+    def test_file_batch_same_name_twice(self):
+        run("prep.py", "scan-batch", os.path.join(self.src, "a.md"), os.path.join(self.src, "b.txt"),
+            "--library", self.lib, "--work", self.work)
+        for n in (1, 2):
+            write(os.path.join(self.work, f"head_{n}.md"), "Date: x\n")
+        items = [{"n": n, "partition": "02", "topic": "Ops", "type": "memo", "title": "Same", "orig": f"{n}"}
+                 for n in (1, 2)]
+        write(self.p("d.json"), json.dumps(items))
+        p = run("prep.py", "file-batch", self.p("d.json"), "--library", self.lib, "--work", self.work,
+                "--out", self.p("o"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("item 2: same file name as item 1", p.stdout)
+
+
+class PackageClassATest(Tmp):
+    def test_preview_stops_on_class_a(self):
+        lib, out = self.p("lib"), self.p("out")
+        write(os.path.join(lib, "_kb.json"), json.dumps({"schema": 1, "label": "Life", "timezone": "UTC",
+                                                         "sensitivity": {"enabled": True, "keep_last": 4}}))
+        write(os.path.join(out, "02_Money_card_A.md"), f"card {card_number()}\n")
+        write(os.path.join(out, "01_File-Index.md"), "index\n")
+        write(os.path.join(out, "README.txt"), "readme\n")
+        plan = self.p("work", "plan.json")
+        os.makedirs(os.path.dirname(plan))
+        p = run("package.py", "preview", out, "--library", lib, "--plan", plan, "--in-place", check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("Class-A candidate: 02_Money_card_A.md line 1: card number", p.stdout)
+        self.assertNotIn(card_number(), p.stdout)
+        self.assertFalse(os.path.exists(plan))
+        p = run("package.py", "preview", out, "--library", lib, "--plan", plan, "--in-place", "--class-a-reviewed")
+        self.assertTrue(os.path.isfile(plan))
+
+
+class KbAskTest(Tmp):
+    def setUp(self):
+        super().setUp()
+        lib = self.lib = self.p("lib")
+        write(os.path.join(lib, "_kb.json"), json.dumps({"schema": 1, "label": "Work"}))
+        write(os.path.join(lib, "00_Spec.md"), SPEC_EN)
+        write(os.path.join(lib, "00_Status-Card.md"), "# Status card\n\n## Projects\n\n"
+              "1. Atlas launches in May (basis: 05_Ops_minutes_Kickoff.md)\n2. Payments run daily.\n")
+        write(os.path.join(lib, "01_File-Index.md"), "# File index\n\nFile name | Source file\n--- | ---\n"
+              "05_Ops_minutes_Kickoff.md | kickoff.docx\n05_Ops_memo_Other.md | other.docx\n")
+        write(os.path.join(lib, "01_Open-Items.md"), "# Open items\n\n1. Atlass budget not decided.\n")
+        write(os.path.join(lib, "05_Ops_minutes_Kickoff.md"), "# Kickoff\n\nThe Atlas team met.\n\n## Budget\n\nNo budget yet.\n")
+        write(os.path.join(lib, "05_Ops_memo_Other.md"), "# Other\n\nPA review of Atlas, Atlas and Atlas.\n")
+        write(os.path.join(lib, "05_Ops_memo_Unrelated.md"), "# Payments\n\nNothing about the project.\n")
+        write(os.path.join(lib, "Entities", "Project Atlas.md"), "# Project Atlas\n")
+        write(os.path.join(lib, "Quick-Notes", "20261001-0900_note.md"), "Quick note\nZebra crossing idea\n")
+        write(os.path.join(lib, "README.md"), "Atlas\n")
+
+    def test_ask_expands_and_orders(self):
+        out = kbfind("ask", self.lib, "--q", "Project Atlas")
+        self.assertIn("keyword 1: Project Atlas | Atlas | PA  [added: Atlas (Table E: Project Atlas); "
+                      "PA (Table E: Project Atlas)]", out)
+        self.assertIn("== status_card: 00_Status-Card.md | 1 blocks", out)
+        self.assertIn("1. Atlas launches in May", out)
+        self.assertIn("== index: 01_File-Index.md | 0 blocks", out)
+        self.assertIn("== open_items: 01_Open-Items.md | 0 blocks", out)  # Atlass is no whole-word Atlas
+        self.assertIn("== source files | 3 searched | 2 with hits", out)
+        # the file the status card names comes first, though the other has more hits
+        self.assertLess(out.index("= 05_Ops_minutes_Kickoff.md"), out.index("= 05_Ops_memo_Other.md"))
+        self.assertIn("named in the status card or index", out)
+        self.assertNotIn("Unrelated", out)  # "PA" is not found inside "Payments"
+        self.assertNotIn("README", out)
+        self.assertIn("entity pages for these keywords: Entities/Project Atlas.md", out)
+        self.assertNotIn("quick notes", out)
+
+    def test_ask_old_form_all_and_notes_fallback(self):
+        out = kbfind("ask", self.lib, "--q", "Atlass")
+        self.assertIn("keyword 1: Atlass | Atlas | Project Atlas | PA  [added: Atlas (standard form, Table B); "
+                      "Project Atlas (Table E: Project Atlas)", out)  # the standard form brings its aliases
+        self.assertIn("1. Atlass budget not decided.", out)
+        out = kbfind("ask", self.lib, "--q", "Atlas", "--q", "budget", "--all")
+        self.assertIn("== source files | 3 searched | 0 with hits", out)
+        out = kbfind("ask", self.lib, "--q", "zebra")
+        self.assertIn("== quick notes (nothing in the library itself) | 1 with hits", out)
+        self.assertIn("Quick-Notes/20261001-0900_note.md (quick note, not yet filed)", out)
+        self.assertIn("no match in the library", out)
+
+    def test_ask_output_cap(self):
+        out = kbfind("ask", self.lib, "--q", "Atlas", "--max-chars", "400")
+        self.assertIn("not shown (output cap)", out)
+
+
+CARD = """# 状态卡
+最后更新：2026-10-01
+
+一、项目
+示例项目：五月上线（依据：05_示例_纪要_启动会.md）
+承接方：示例组
+二、口径
+统计口径：按自然月
+统计口径：按自然月
+"""
+
+
+class CardPatchTest(Tmp):
+    def patch(self, ops, check=True, **kw):
+        write(self.p("old.md"), kw.get("old", CARD))
+        write(self.p("patch.json"), json.dumps(ops, ensure_ascii=False))
+        args = ["apply", self.p("old.md"), self.p("patch.json"), "--out", self.p("out", "new.md")]
+        return run("card_patch.py", *args + (["--check"] if kw.get("card_check") else []), check=check)
+
+    def test_every_operation_and_change_list(self):
+        p = self.patch([
+            {"op": "replace", "old": "示例项目：五月上线（依据：05_示例_纪要_启动会.md）",
+             "new": "示例项目：六月上线（依据：05_示例_纪要_复盘会.md）"},
+            {"op": "delete", "old": "承接方：示例组", "reason": "已移交"},
+            {"op": "insert_after", "anchor": "二、口径", "new": "汇总口径：按季度"},
+            {"op": "insert_before", "anchor": "二、口径", "new": "示例子项：待定\n示例子项二：待定"},
+            {"op": "set_field", "field": "最后更新", "value": "2026-10-25"},
+        ], card_check=True)
+        self.assertIn("patched: 1 replaced, 1 deleted, 2 inserted, 1 fields", p.stdout)
+        self.assertIn("Result: passed", p.stdout)
+        new = read(self.p("out", "new.md"))
+        self.assertEqual(new, "# 状态卡\n最后更新：2026-10-25\n\n一、项目\n示例项目：六月上线（依据：05_示例_纪要_复盘会.md）\n"
+                              "示例子项：待定\n示例子项二：待定\n二、口径\n汇总口径：按季度\n统计口径：按自然月\n统计口径：按自然月\n")
+        changes = read(self.p("out", "new.changes.txt"))
+        self.assertIn("Item: 示例项目：五月上线（依据：05_示例_纪要_启动会.md） -> 示例项目：六月上线", changes)
+        self.assertIn("Delete item: 承接方：示例组 (已移交)", changes)
+        self.assertIn("Field 最后更新: 2026-10-01 -> 2026-10-25", changes)
+
+    def test_refusals_write_nothing(self):
+        p = self.patch([
+            {"op": "replace", "old": "统计口径：按自然月", "new": "x"},
+            {"op": "replace", "old": "不存在的一行", "new": "x"},
+            {"op": "delete", "old": "承接方：示例组"},
+            {"op": "replace", "old": "一、项目\n示例项目：五月上线（依据：05_示例_纪要_启动会.md）", "new": "y"},
+            {"op": "insert_after", "anchor": "一、项目", "new": "z"},
+            {"op": "set_field", "field": "版本", "value": "v2"},
+        ], check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("change 1 (replace): found 2 times", p.stdout)
+        self.assertIn("change 2 (replace): not found", p.stdout)
+        self.assertIn("change 3 (delete): a deletion needs a reason", p.stdout)
+        self.assertIn("change 5 is anchored on lines that change 4 replaces or deletes", p.stdout)
+        self.assertIn("change 6 (set_field): no line starts with 版本:", p.stdout)
+        self.assertFalse(os.path.exists(self.p("out", "new.md")))
+
+    def test_check_catches_an_unexplained_loss(self):
+        p = self.patch([{"op": "replace", "old": "承接方：示例组", "new": "承接方：示例二组"}], card_check=True)
+        self.assertIn("Result: passed", p.stdout)  # the replaced line is explained by the change list
+        # a line the patch never touched but that is gone (here: the old file held one more) still fails
+        write(self.p("longer.md"), CARD + "附注：保留此行\n")
+        p = run("card_check.py", self.p("longer.md"), self.p("out", "new.md"), "--changes",
+                self.p("out", "new.changes.txt"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("1 unexplained losses", p.stdout)
+
+    def test_trailing_spaces_and_final_newline(self):
+        old = "a  \nb\nc"
+        p = self.patch([{"op": "replace", "old": "a", "new": "A"}], old=old)
+        self.assertEqual(read(self.p("out", "new.md")), "A\nb\nc")
+
+    def test_refuses_output_in_library(self):
+        write(self.p("lib", "_kb.json"), "{}")
+        write(self.p("old.md"), CARD)
+        write(self.p("patch.json"), "[]")
+        p = run("card_patch.py", "apply", self.p("old.md"), self.p("patch.json"), "--out",
+                self.p("lib", "00_x.md"), check=False)
+        self.assertEqual(p.returncode, 3)
+        self.assertIn("inside a library root", p.stdout)
+
+
+SPEC_ZH_TEXT = """00 整理规范（v1.2）
+
+本规范定义表A、表B、表E，见下文。修订说明：v1.1 起在表E登记实体。
+
+一、表A　分区与议题
+
+01　汇总：状态卡、索引。
+02　示例分区：示例议题甲、示例议题乙。
+03　兜底分区：其他。
+
+二、表B　术语修正
+
+原写法 → 规范写法 → 备注
+旧称甲 → 新称甲 → 示例
+旧称乙 → 新称乙 → 示例
+
+三、表E　实体
+
+列：名称｜类型｜别名｜核心
+类型可选：项目、系统。
+
+示例系统｜系统｜示例系统简称;SYS｜是
+另一系统｜系统｜无｜否
+
+四、表F　取值过滤
+空值写法：无、暂无。
+"""
+
+
+class SpecTableTest(Tmp):
+    def test_titles_arrows_lead_in_and_placeholders(self):
+        self.assertEqual(kbconf.term_pairs(SPEC_ZH_TEXT), [("旧称甲", "新称甲"), ("旧称乙", "新称乙")])
+        self.assertEqual(kbconf.entity_list(SPEC_ZH_TEXT),
+                         [("示例系统", ["示例系统简称", "SYS"]), ("另一系统", [])])  # "无" is no alias
+        header, rows = kbconf.spec_table(SPEC_ZH_TEXT, "E")
+        self.assertEqual(header, ["名称", "类型", "别名", "核心"])  # "列：" dropped
+        self.assertEqual(len(rows), 2)  # the note between header and rows is skipped
+        self.assertIsNone(kbconf.spec_table(SPEC_ZH_TEXT, "A"))  # running text, no rows
+        self.assertEqual([ln for ln in kbconf.spec_section(SPEC_ZH_TEXT, "A") if ln.strip()][0], "01　汇总：状态卡、索引。")
+
+    def test_full_width_and_markdown_tables(self):
+        spec = "一、表A　分区\n\n分区号｜分区名｜议题\n01｜汇总｜索引\n02｜示例｜示例议题\n\n二、表B　术语\n\n原写法｜规范写法\n暂无条目。\n"
+        self.assertEqual(kbconf.spec_table(spec, "A")[1], [["01", "汇总", "索引"], ["02", "示例", "示例议题"]])
+        self.assertEqual(kbconf.term_pairs(spec), [])  # header only: an empty table, not a missing one
+        self.assertEqual(kbconf.entity_list(SPEC_EN), [("Project Atlas", ["Atlas", "PA"]), ("Payments Gateway", [])])
+        self.assertIsNone(kbconf.spec_table("Only Table B is mentioned here, in a sentence.\nA | B\n", "B"))
+
+    def test_title_with_bracketed_note(self):
+        spec = "表A　分区\n01｜汇总\n\n表C　存疑项（规范层面、待定）\n1. 示例存疑\n\n见表C、表D的说明。\n"
+        self.assertEqual([ln for ln in kbconf.spec_section(spec, "C") if ln.strip()][0], "1. 示例存疑")
+        self.assertIsNone(kbconf.spec_section("见表C、表D的说明。\n", "C"))  # a sentence stays no title
+
+    def test_spec_brief_leaves_out_revision_notes(self):
+        spec = ("00 整理规范（v1.2）\n修订说明：2026-01-01 新增表E。\n修订说明：2026-02-01 调整表B。\n\n"
+                "一、表A　分区\n01　汇总\n\n二、表B　术语\n旧称甲 → 新称甲\n\n表述规范\n全程中文。\n\n"
+                "本次修订说明（v1.2）\n\n一、表B新增一条。\n　细节一行。\n\n修订历史（摘要）\n\n一、v1.0 建立。\n\n"
+                "最后更新：2026-02-01\n")
+        text, skip = kbconf.spec_brief(spec)
+        self.assertEqual(skip, [(2, 3), (14, 21)])
+        self.assertNotIn("修订", text.replace("[revision notes", ""))
+        self.assertIn("[revision notes, lines 2-3 (2 lines), left out", text)
+        self.assertIn("表述规范\n全程中文。", text)
+        self.assertIn("最后更新：2026-02-01", text)
+        self.assertTrue(text.endswith("[tables found by title: A, B; not found: C, D, E, F]"))
+        self.assertIn("本次修订说明", kbconf.spec_brief(spec, with_revisions=True)[0])
+        write(self.p("lib", "_kb.json"), json.dumps({"schema": 1, "label": "示例库", "timezone": "UTC"}))
+        write(self.p("lib", "00_Spec.md"), spec)
+        out = run("kbconf.py", "spec", self.p("lib")).stdout
+        self.assertIn("lines 14-21 (8 lines), left out", out)
+
+    def test_meta_terms_on_arrow_table(self):
+        write(self.p("spec.md"), SPEC_ZH_TEXT)
+        write(self.p("body.md"), "# 记录\n\n旧称甲已停用。\n")
+        out = run("meta.py", "terms", self.p("spec.md"), self.p("body.md")).stdout
+        self.assertIn("旧称甲 -> 新称甲: 1 lines", out)

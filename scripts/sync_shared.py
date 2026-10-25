@@ -20,11 +20,15 @@ log = logging.getLogger("sync_shared")
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s.%(funcName)s:%(lineno)d - %(message)s"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-REFS = ["config.md", "environment.md", "backend-gdrive.md", "backend-github.md"]
+REFS = ["config.md", "environment.md", "backend-github.md"]
 # (file under shared/, folders that receive a copy, relative to the repository root)
 PLAN = [(f"references/{r}", [f"skills/{s}/references" for s in ("kb-note", "kb-query", "kb-ingest")])
         for r in REFS]
-PLAN.append(("scripts/kbconf.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts"]))
+PLAN.append(("scripts/kbconf.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts", "skills/kb-note/scripts"]))
+# git steps of a GitHub library (references/backend-github.md); needs kbconf.py next to it
+PLAN.append(("scripts/kbgit.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts", "skills/kb-note/scripts"]))
+# local search of a library: kb-query answers with it, kb-ingest reads status-card blocks with it
+PLAN.append(("scripts/kbfind.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts"]))
 # the converter: used by kb-ingest (scripts/convert.py)
 PLAN.append(("scripts/doc2kb_core.py", ["skills/kb-ingest/scripts"]))
 

@@ -2,6 +2,19 @@
 
 Releases follow the "Version:" line of the three SKILL.md files; merging a version change to main publishes v<version> (.github/workflows/release.yml).
 
+## 3.2.0
+
+Reads stay in the local checkout and only writes reach the remote; the mechanical steps run as scripts.
+
+- Sync and commit (scripts/kbgit.py, in every skill): sync finds the remote's default branch (git ls-remote --symref origin HEAD, else main), switches a checkout on another branch to it when no tracked file has uncommitted changes and the branch holds no commits of its own, fetches and fast-forwards; kb-query falls back to the local copy and says it may not be current, the writing skills stop. commit stages only the paths of the round, refuses repository files and anything else staged, commits as the identity the repository instructions name, drops assistant trailers, scans for class-A data when sensitivity is on, rebases and pushes to the default branch only, retries network errors and pulls again when another session pushed first. A rebase conflict keeps the commit local; drop-local resets to the remote after the user confirms.
+- When to sync: kb-query before the first read of a conversation and when the user asks for the latest state; kb-ingest at the start of every task (a health check read-only); kb-note inside note.py save, which writes nothing when the sync stops.
+- kb-query (scripts/kbfind.py, now shared with kb-ingest): ask searches the whole library in one call, adding the spec's Table B and Table E forms of each keyword, and prints only matching blocks; history lists the versions of a file and the commits where a wording appeared or vanished.
+- kb-note: note.py save names, writes, commits and pushes a note in one call and reports the backlog.
+- kb-ingest reads less: kbconf.py spec prints the spec without its revision notes (their line ranges are named) and lists the tables found by title; the status card and change log are read as matching blocks (kbfind.py toc and find), not whole. Table titles are found by position and length, with punctuation inside brackets allowed.
+- kb-ingest scripts: prep.py scan-batch and file-batch file a batch in two calls; meta.py apply writes confirmed term fixes and masks at once; card_patch.py changes summary files item by item and checks the result; package.py preview --confirmed --commit delivers, commits and pushes; lint.py runs the health check in one call; entity_pages.py keeps the related-files list of each entity page between its markers.
+- kbconf.py scan-a lists class-A candidates (ID, card and account numbers, unmasked passwords and codes), starred.
+- The Google Drive backend and its archive scripts are removed; the registry accepts only github libraries.
+
 ## 2.3.0
 
 First release of repo-wiki: the skills, setup and documentation for a library kept in a private GitHub repository and used from Claude Code.

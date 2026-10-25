@@ -33,7 +33,7 @@ It does rules 1, 1a (empty-value forms, and noise values Table F quotes) and 2 b
    - In keywords: always plain text, never registered.
 4. Never add links in body text.
 
-Registering an entity changes the spec (a Table E row), so read the spec in full, rewrite it, deliver it and list it in the readme's updated-files section. With topic expansions in the same run, make one rewrite (SKILL.md "Topic expansion", rule 4).
+Registering an entity changes the spec (a Table E row), so add the row with card_patch.py (an insert after the last Table E row), deliver the spec and list it in the readme's updated-files section. With topic expansions in the same run, make one rewrite (SKILL.md "Topic expansion", rule 4).
 
 ## Entity pages
 
@@ -48,7 +48,12 @@ aliases: ["alias 1", "alias 2"]
 
 # <Name>
 
+<One sentence: what the entity is, from the identity of rule 3a.>
+
 ## Related files
+
+<!-- kb:related -->
+<!-- /kb:related -->
 
 ```base
 filters:
@@ -68,6 +73,10 @@ views:
 
 Replace the placeholders with the library's folder names and list the date fields the spec uses. The base block is an Obsidian Bases query; other editors show it as a code block.
 
+The identity line is written when the entity is registered, in the library language, from rule 3a (its definition, not its role in one material); the script never touches it, and health check item 3 lists pages without one. Change it with card_patch.py like any other entity-page line.
+
+The related-files list between <!-- kb:related --> and <!-- /kb:related --> is generated: one line per topic file whose front matter links the entity, newest document date first, as a Markdown link with the date and type, so it reads on GitHub as well as in Obsidian. Never write or edit it by hand. package.py preview --in-place refreshes it for every page the delivery changes (scripts/entity_pages.py, the output laid over the library) and lists those pages under "Overwritten in place"; a page without the marks gets them after the heading in front of the base block. Outside a delivery, python3 scripts/entity_pages.py <root> --check reports out-of-date lists and --in-place rewrites them (then commit them as one round).
+
 Core entities (Table E core = yes): core: true, and at the end:
 
 ## Overview
@@ -79,7 +88,7 @@ Overview rules:
 - End every sentence with its source, such as (basis: [[05_Decisions_Minutes_Release-Review-2026-09]]).
 - Current-state statements only cite the status card, such as (see status card item 12); never a conclusion of its own. If they disagree, the status card wins and the mismatch is logged as an issue.
 - Subject boundaries: when material covers several entities, each conclusion, number or judgement goes only into the overview of the entity it describes. Shared keywords (same metric, term or meeting) are no reason to copy one entity's facts to another. A comparison is written as a comparison, with a basis for each side.
-- After updating, run card_check.py as in SKILL.md "Rewrite check".
+- Make the update with card_patch.py and its --check, as in SKILL.md "Rewrite check".
 - Structure: what it is, current state, key conclusions, history (newest first).
 - Updated pages go to <out>/<entities_dir>/ and are listed in the readme's updated-files section.
 

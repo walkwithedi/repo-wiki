@@ -6,17 +6,17 @@ Nothing about a particular library is written in the skills. Everything comes fr
 
 Look for the registry in this order and use the first one found:
 
-1. The current project instructions (claude.ai Project instructions, AGENTS.md, CLAUDE.md, GEMINI.md and the like), in one of two forms:
-   - a line naming a registry in Google Drive: "registry: Google Drive folder <folder id>, file kb-libraries.json". find_exact kb-libraries.json in that folder (the folder ID comes from the instructions, not from memory) and read it; several copies: use the most recently modified and mention it. Not found: say so and offer init mode; do not search elsewhere.
-   - a registry pasted as JSON (the older form; still read as is).
+1. The current project instructions (the repository's CLAUDE.md, AGENTS.md, GEMINI.md and the like): the registry block that init mode writes there, a registry as JSON.
 2. The file named by the environment variable KB_LIBRARIES.
 3. ~/.config/kb/kb-libraries.json (on Windows %APPDATA%\kb\kb-libraries.json).
 4. config/kb-libraries.json inside this skill folder (present only in a private build made with build_skill.py --config).
 
-If none exists, nothing is set up yet. Never guess a folder ID or path. Offer setup once, in one line, then go on:
-- kb-query: a question unrelated to any knowledge base is answered normally, without the offer. A question meant for the knowledge base: say it is not set up yet and offer: "No knowledge base is set up yet. Set one up now? Three questions, a preview, nothing written before you confirm." In claude.ai and the Claude apps, add one sentence: "If you set one up before, the knowledge base line is probably missing from the Project instructions, or this conversation is not in that Project."
+If none exists, nothing is set up yet. Never guess a repository or path. Offer setup once, in one line, then go on:
+- kb-query: a question unrelated to any knowledge base is answered normally, without the offer. A question meant for the knowledge base: say it is not set up yet and offer: "No knowledge base is set up yet. Set one up now? Two questions, a preview, nothing written before you confirm."
 - kb-note: show the finished note in the reply so nothing is lost, then make the same offer; once the library exists, offer to save the note there.
+<!-- kb-ingest-only -->
 - kb-ingest (intake or setup asked for): the user already wants a library, so go straight to init mode (references/init.md in kb-ingest).
+<!-- /kb-ingest-only -->
 - If the user agrees, follow the getting-started part of kb-ingest init mode (references/init.md in kb-ingest). If not, do not offer again in this conversation.
 
 ```json
@@ -25,18 +25,14 @@ If none exists, nothing is set up yet. Never guess a folder ID or path. Offer se
   "preferences": {"language": "en", "output": "markdown"},
   "libraries": [
     {"id": "work", "label": "Work", "scope": "team projects, decisions, specs, owners",
-     "backend": {"type": "gdrive", "root": "<drive-folder-id>"}},
-    {"id": "life", "label": "Life", "scope": "me and my family: IDs, health, insurance, money, home",
-     "backend": {"type": "gdrive", "root": "<drive-folder-id>"}}
+     "backend": {"type": "github", "root": "<owner>/<work-repo>"}}
   ]
 }
 ```
 
-A registry in Google Drive is the same JSON, kept by kb-ingest (init mode adds entries to it), so the project instructions never change when a library is added. It sits in the root of the first Drive library under the name kb-libraries.json; the knowledge-file searches skip it because it is not a Markdown file. Drive cannot rewrite a file in place, so an update moves the old copy to that library's archive folder and writes a new one; the folder ID in the instructions stays valid.
-
 - id: short lowercase name used in replies and file names.
 - scope: one sentence saying what belongs in the library. It is how you decide which library a request or question belongs to.
-- backend.type: gdrive or github. gdrive: root is the library's Drive folder ID; read references/backend-gdrive.md. github: root is the repository as "<owner>/<repo>", used from a local checkout in a coding agent session; read references/backend-github.md. These skills serve Google Drive and GitHub libraries only: an entry of another type is refused (kbconf.py reports it); local folders are kept with evergreen-wiki.
+- backend.type: github; root is the repository as "<owner>/<repo>", used from a local checkout in a coding agent session; read references/backend-github.md. These skills serve GitHub libraries only: an entry of another type is refused (kbconf.py reports it). One repository holds one library, and its registry lists that one library.
 - preferences.output: markdown (default) or plain. With plain, replies use no Markdown markup at all (no headings, bold, bullets, code blocks or tables); number items as "1." or "(1)" instead. Knowledge files keep their own formats either way.
 - preferences.language: language of replies when a library does not set its own.
 
@@ -73,13 +69,17 @@ The spec is the source of every rule about partitions, topics, terms and thresho
 
 - language: language of replies, readme files and new files for this library.
 - timezone: IANA name or a fixed offset such as +08:00. Use it for every time stamp (note times, archive suffixes, log names). The scripts resolve IANA names only on Python 3.9+ with a timezone database (Windows usually has none); there, use the fixed offset.
+<!-- kb-ingest-only -->
 - metadata: yaml (front matter and entity links, see entity-yaml.md) or text (plain header from _kb-params.md).
+<!-- /kb-ingest-only -->
 - sensitivity.enabled: when true, class-A data (ID numbers, card and account numbers, passwords, one-time codes) is masked to at most the last keep_last characters before anything is written or shown.
+<!-- kb-ingest-only -->
 - partitions: highest partition number, first topic partition (00 and 01 hold summary files), and the fallback partition for new topics.
-- delivery: direct or zip. Empty means direct: the assistant writes the files into the library after you confirm a preview, and archives the old versions at the same time. A Drive library with an inbox entry (its own unpack script) defaults to zip.
+- delivery: direct (also when empty): the assistant writes the files into the checkout after you confirm a preview, then commits and pushes them.
 - convert: kb-ingest turns uploaded Office, PDF and mail files into Markdown with a script before reading them (fewer tokens, faster). enabled: true or false (false when the key is missing; new libraries from a preset start with true). image_limit: pictures in one batch that are read without asking (default 10); over it the user decides once for the batch. min_pdf_chars_per_page (default 200) and min_chars_per_image (default 100): below these a file is read as the original instead (a scan, or a document that is mostly pictures). outline_chars (default 6000; 0 turns it off): converted text longer than this also gets an outline (opening text, headings with line numbers), which is read first; the full text only where it is needed (references/convert.md in kb-ingest).
 - intake: how kb-ingest files material. mode: fast (the default, also when the key is missing) files each item at once, searchable as soon as it is written, and leaves key conclusions and the status-card check to consolidation (references/fast.md and references/consolidate.md in kb-ingest); full runs every step for every item before delivery, as before. A request that says "full intake" ("完整入库") uses full for that request. consolidate_files (default 10): files handled in one consolidation round. Many files are filed in batches (references/batches.md in kb-ingest): a batch closes at batch_files files (default 10) or batch_mb megabytes (default 20); material that makes more than one batch is planned first and filed batch by batch. Lower them when one batch takes too long.
-- sources: accepted and ignored; Google Drive libraries never keep copies of originals.
+- sources: accepted and ignored; a GitHub library never keeps copies of originals.
+<!-- /kb-ingest-only -->
 - names: overrides for any default name below. Leave out the keys you do not change.
 
 ### Names
@@ -107,12 +107,15 @@ The spec is the source of every rule about partitions, topics, terms and thresho
 
 Each summary file also has a search key, the file name without its number prefix and extension (00_Status-Card.md → Status-Card). A library may set spec_key, status_card_key and so on in names. Search with the key, not the full name, and always use the name actually found in the library when you write the file back; if the library name differs from the configured one, say so in the delivery note.
 
+<!-- kb-ingest-only -->
 In kb-ingest, scripts/kbconf.py prints the resolved configuration: python3 scripts/kbconf.py show <library root or _kb.json>. Elsewhere, merge the defaults above with the names in _kb.json yourself.
+<!-- /kb-ingest-only -->
 
 ### Ignored files
 
 Every search and every read of knowledge files skips: the archive folder; names that start with an underscore (run logs, _kb.json, _kb-params.md, an inbox configuration file, the batch progress file, the consolidation queue); names that start with snapshot_prefix; names that contain old_suffix followed by a time stamp. In a GitHub library also README.md, CLAUDE.md, AGENTS.md and names starting with a dot (references/backend-github.md).
 
+<!-- kb-ingest-only -->
 ## 3. Library folder and material: words to use with the user
 
 Users do not know the inner workings, so the library folder and the material must never be confused, and the reply names them the same way every time:
@@ -122,7 +125,7 @@ Users do not know the inner workings, so the library folder and the material mus
 
 Rules:
 1. To the user, say only "library folder" and "material" (知识库文件夹, 资料来源), with the short explanation in brackets the first time each appears in a conversation. Never say registry, root, backend, _kb.json or 注册表 to the user, except in the init preview and when the user uses the word first.
-2. No folder is ever chosen for the user. Ask for the Drive folder link or ID in one sentence without suggesting one. Folders already chosen can be changed in the init preview.
+2. No folder is ever chosen for the user: the library is the checked-out repository, and material is whatever the user names.
 3. Material outside the library folder is normal. Never offer to change a registered library's folder because the material is somewhere else. Folders the user names that hold original files are material: read them from there. Change a library's folder only when the user explicitly asks to move the library or points it at a folder that already holds that library (_kb.json or a 00_ spec file).
 4. When it is unclear which the user means, ask once with this question, each option saying what follows:
    "Is <folder> where your original files are, or where the filed knowledge base should be?
@@ -137,9 +140,10 @@ Rules:
 
 A batch intake (references/batches.md in kb-ingest) keeps its progress file (names.batch_plan) in the work folder, so it lasts only for one conversation. Within that conversation, "continue intake" picks it up as batches.md says; in a new conversation there is nothing to remind of, and the user starts the intake again (files already filed are found as duplicates by their content hash and skipped).
 
+<!-- /kb-ingest-only -->
 ## 5. Consolidation due: remind once per conversation
 
-Fast intake (references/fast.md in kb-ingest) writes each filed item into the consolidation queue (names.consolidation_queue, a Markdown table in the library root, kept in Google Drive libraries too). Until consolidation has run for an item, its key conclusions are not written and the status card, change log and open items may not reflect it.
+Fast intake (references/fast.md in kb-ingest) writes each filed item into the consolidation queue (names.consolidation_queue, a Markdown table in the library root). Until consolidation has run for an item, its key conclusions are not written and the status card, change log and open items may not reflect it.
 
 1. After the library is chosen, find_exact names.consolidation_queue in the library root. Missing, or a table with no rows: nothing to say.
 2. Otherwise say in one line how many files wait and since when (the oldest filed time), and ask once, as a choice:

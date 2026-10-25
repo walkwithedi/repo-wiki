@@ -21,14 +21,22 @@ only judges and confirms.
   terms SPEC BODY
       Every place in BODY where a Table B original wording occurs, with the line and its text, for
       the assistant to confirm one at a time. Exit 3 when Table B cannot be read.
+  apply BODY FIXES.tsv [--keep-last N]
+      Writes the term fixes and masks the assistant confirmed, one row per place, all at once:
+      line<TAB>original<TAB>replacement[<TAB>occurrence]; the replacement "mask" stars every letter and
+      digit of the original but the last N. Each row must find its original on its line (the
+      occurrence number picks one when the line holds it more than once; without it every occurrence
+      on that line changes); any row that does not fit stops the run before anything is written. Prints
+      the record lines of step 2.3 (original -> fixed -> section heading; masks without the original).
+      Refuses a body inside a library root.
   yaml FIELDS.json
       Front matter from a JSON object, keys in the order given: strings quoted and escaped, numbers,
       true and false, and ISO dates (2026-09-20, 2026-09-20T14:09) unquoted, lists as quoted lists;
       a key with null is left out. Partition and other zero-padded codes stay quoted when given as
       strings.
 
-Read-only: results on stdout, nothing is written. stderr: log. Exit codes: 0 ok; 2 bad arguments or
-unreadable file; 3 refused or not found (see above).
+Read-only except apply, which rewrites the body file in the work folder: results on stdout. stderr: log.
+Exit codes: 0 ok; 2 bad arguments or unreadable file; 3 refused or not found (see above).
 """
 import argparse
 import json
@@ -43,7 +51,6 @@ import kbconf  # noqa: E402
 
 log = logging.getLogger("meta")
 BAD_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
-TABLE_LABEL = re.compile(r"(?:Table|表)\s*([A-F])\b")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?$")
 OPEN, CLOSE = "([（【「《\"“", ")]）】」》\"”"
 QUOTED = re.compile(r"[\"“「]([^\"”」]+)[\"”」]")
@@ -72,49 +79,9 @@ def read_text(path):
         sys.exit(2)
 
 
-def cells(line):
-    s = line.strip()
-    if s.startswith("|"):
-        s = s[1:]
-    if s.endswith("|"):
-        s = s[:-1]
-    return [c.strip() for c in s.split("|")]
-
-
-def is_row(line):
-    return "|" in line and line.strip() != ""
-
-
-def is_separator(line):
-    return all(re.fullmatch(r":?-{3,}:?", c) for c in cells(line) if c) and "-" in line
-
-
 def table(spec, letter):
-    """(header cells, rows of cells) of the spec's Table <letter>, or None when no such table is
-    found. The table is the run of pipe rows that follows the line naming it."""
-    lines = spec.split("\n")
-    for i, line in enumerate(lines):
-        m = TABLE_LABEL.search(line)
-        if not m or m.group(1) != letter or is_row(line):
-            continue
-        j = i + 1
-        while j < len(lines) and not lines[j].strip():
-            j += 1
-        rows = []
-        while j < len(lines) and is_row(lines[j]):
-            if not is_separator(lines[j]):
-                rows.append(cells(lines[j]))
-            j += 1
-        if rows:
-            return rows[0], rows[1:]
-    return None
-
-
-def column(header, words, default):
-    for k, h in enumerate(header):
-        if h.casefold() in words:
-            return k
-    return default
+    """(header cells, rows of cells) of the spec's Table <letter>, or None (kbconf.spec_table)."""
+    return kbconf.spec_table(spec, letter)
 
 
 def listed(cell):
@@ -123,16 +90,8 @@ def listed(cell):
 
 
 def entity_table(spec):
-    t = table(spec, "E")
-    if t is None:
-        return None
-    header, rows = t
-    alias_col = column(header, ("aliases", "alias", "别名", "别称"), 2)
-    out = []
-    for r in rows:
-        if r and r[0]:
-            out.append((r[0], listed(r[alias_col]) if alias_col < len(r) else []))
-    return out
+    """[(name, [aliases])] of Table E, or None (kbconf.entity_list: placeholders such as "none" are no alias)."""
+    return kbconf.entity_list(spec)
 
 
 def filter_table(spec):
@@ -253,6 +212,85 @@ def terms_report(spec, body):
     return "\n".join(out) + "\n"
 
 
+# ---------- apply ----------
+
+HEAD_LINE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
+
+
+def in_library(path):
+    d = os.path.dirname(os.path.abspath(path))
+    while True:
+        if os.path.isfile(os.path.join(d, kbconf.KB_JSON)):
+            return True
+        up = os.path.dirname(d)
+        if up == d:
+            return False
+        d = up
+
+
+def masked(value, keep):
+    """Every letter and digit starred except the last keep ones; separators stay."""
+    idx = [i for i, c in enumerate(value) if c.isalnum()]
+    star = set(idx[:max(len(idx) - keep, 0)])
+    return "".join("*" if i in star else c for i, c in enumerate(value))
+
+
+def apply_fixes(text, rows, keep):
+    """(new text, record lines) or raises ValueError listing every row that does not fit."""
+    lines = text.split("\n")
+    heading, current = [], "(before the first heading)"
+    for ln in lines:
+        m = HEAD_LINE.match(ln)
+        current = m.group(1) if m else current
+        heading.append(current)
+    problems, plan = [], []
+    for k, (no, orig, fixed, which) in enumerate(rows, 1):
+        if not 1 <= no <= len(lines):
+            problems.append(f"row {k}: line {no} is outside the body (1-{len(lines)})")
+            continue
+        count = lines[no - 1].count(orig) if orig else 0
+        if not count:
+            problems.append(f"row {k}: line {no} does not hold the original wording")
+            continue
+        if which and which > count:
+            problems.append(f"row {k}: line {no} holds it {count} time(s), not {which}")
+            continue
+        plan.append((k, no, orig, fixed, which))
+    if problems:
+        raise ValueError("\n".join(problems))
+    records = []
+    for k, no, orig, fixed, which in plan:
+        ln = lines[no - 1]
+        mask = fixed == "mask"
+        new = masked(orig, keep) if mask else fixed
+        if which:
+            parts = ln.split(orig)
+            ln = orig.join(parts[:which]) + new + orig.join(parts[which:])
+        else:
+            ln = ln.replace(orig, new)
+        lines[no - 1] = ln
+        if mask:
+            records.append(f"line {no}: masked, last {keep} kept -> {heading[no - 1]}")
+        else:
+            records.append(f"{orig} -> {new} -> {heading[no - 1]}")
+    return "\n".join(lines), records
+
+
+def read_fixes(path):
+    rows = []
+    for k, ln in enumerate(read_text(path).split("\n"), 1):
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        cols = ln.split("\t")
+        try:
+            if len(cols) not in (3, 4) or not cols[1]:
+                raise ValueError
+            rows.append((int(cols[0]), cols[1], cols[2], int(cols[3]) if len(cols) == 4 and cols[3] else 0))
+        except ValueError:
+            raise ValueError(f"fixes line {k}: expected line<TAB>original<TAB>replacement or mask[<TAB>occurrence]")
+    return rows
+
+
 # ---------- yaml ----------
 
 def scalar(v):
@@ -319,6 +357,10 @@ def main():
     p.add_argument("body")
     p = sub.add_parser("yaml")
     p.add_argument("fields", help="JSON file with one object")
+    p = sub.add_parser("apply")
+    p.add_argument("body")
+    p.add_argument("fixes", help="TSV: line, original, replacement or mask, optional occurrence")
+    p.add_argument("--keep-last", type=int, default=4, help="characters a mask keeps (sensitivity.keep_last)")
     kbconf.add_log_args(ap)
     a = ap.parse_args()
     kbconf.setup_logging(a.log_level)
@@ -360,6 +402,21 @@ def main():
             print("Table E not found in the spec: map the entities by hand (entity-yaml.md)")
             return 3
         sys.stdout.write(out)
+        return 0
+    if a.cmd == "apply":
+        if in_library(a.body):
+            print(f"refused: {a.body} is inside a library root; fix the body file in the work folder")
+            return 3
+        try:
+            new, records = apply_fixes(read_text(a.body), read_fixes(a.fixes), a.keep_last)
+        except ValueError as e:
+            print(str(e))
+            print("Result: nothing changed; correct the rows and run again")
+            return 3
+        with open(a.body, "w", encoding="utf-8", newline="\n") as f:
+            f.write(new)
+        print("\n".join(records) if records else "no rows: nothing changed")
+        print(f"Result: {len(records)} change(s) written to {a.body}")
         return 0
     if a.cmd == "terms":
         out = terms_report(read_text(a.spec), read_text(a.body))

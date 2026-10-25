@@ -7,24 +7,18 @@ interactive installer (install.py), so both create exactly the same files.
 Subcommands (results on stdout, logs on stderr):
   defaults  [--preset P] [--language L]       suggested label, id, scope, timezone and language
   plan      --root DIR --preset P [options]   preview of what write would create; exit 3 if refused
-  write     --root DIR --preset P [options]   create the library (local folder, or a GitHub checkout
-                                              with --backend github)
-  render    --out DIR  --preset P [options]   write the same files into DIR for upload (Drive)
-  register  --registry FILE --id ID --label L --scope S --type local|gdrive|github --root R [--dry-run]
+  write     --root DIR --preset P [options]   create the library in a GitHub checkout
+  register  --registry FILE --id ID --label L --scope S --type github --root OWNER/REPO [--dry-run]
   instructions --registry FILE [--language L] [--file F [--apply]] [--project-block]
             print the instructions line, or update it in F, or print a block to paste
             into claude.ai Project instructions (the line plus the registry)
   instructions --registry FILE --file F --block [--apply]
             write the line and the registry as a block into F (the CLAUDE.md of a GitHub
             library); a second run replaces the block; refused when F registers another library
-  instructions --drive-folder ID [--language L]
-            print the one line for claude.ai Project instructions when the registry lives in
-            Google Drive (kb-libraries.json in that folder); it never changes when libraries are added
 
-Options for plan/write/render: --label --id --scope --language --timezone --sensitivity on|off --convert on|off
---sources on|off (keep a copy of each filed original in the library; local libraries) --date
---backend gdrive|github (github: the repository's own files may be present, and no folders are created,
-since git keeps no empty folders; the skills create them when they first write into them).
+Options for plan/write: --label --id --scope --language --timezone --sensitivity on|off --convert on|off
+--sources on|off --date --backend github (the repository's own files may be present, and no folders are
+created, since git keeps no empty folders; the skills create them when they first write into them).
 Missing options take the values printed by defaults.
 
 Exit codes: 0 ok, 2 bad input, 3 refused (folder holds Markdown files, id already used).
@@ -66,15 +60,6 @@ LINE_TAIL = {
           "batch intake, ask whether to continue it.",
     "zh": "。相关问题先用 kb-query 查知识库，再查代码或凭记忆回答；要记录用 kb-note。"
           "新对话开始时，如知识库有未完成的分批入库，先提醒是否继续。",
-}
-# One line for a registry kept in Google Drive. The "registry: ..." part is what the skills
-# look for (references/config.md), so it stays in English in every language.
-DRIVE_LINE = {
-    "en": "I keep knowledge bases; their list and scopes are in Google Drive "
-          "(registry: Google Drive folder {folder}, file kb-libraries.json). For questions my knowledge "
-          "bases may answer, use kb-query before searching code or answering from memory; to save something, use kb-note.",
-    "zh": "我有知识库，库的清单与范围在 Google Drive 里（registry: Google Drive folder {folder}, file kb-libraries.json）。"
-          "可能记在知识库里的问题，先用 kb-query 查知识库，再查代码或凭记忆回答；要记录用 kb-note。",
 }
 REGISTRY_HEADING = {"en": "Knowledge base registry (kb-libraries.json):", "zh": "知识库注册表（kb-libraries.json）："}
 # Files a GitHub repository may hold before it becomes a library (references/backend-github.md);
@@ -168,7 +153,7 @@ def settings(a):
     s["convert"] = d["convert"] if conv is None else conv == "on"
     src = getattr(a, "sources", None)
     s["sources"] = d["sources"] if src is None else src == "on"
-    s["backend"] = getattr(a, "backend", None) or "gdrive"
+    s["backend"] = getattr(a, "backend", None) or "github"
     s["date"] = getattr(a, "date", None) or datetime.now(local_tz(s["timezone"])).strftime("%Y-%m-%d")
     problems = kbconf.check_timezone(s["timezone"])
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", s["id"]):
@@ -228,7 +213,7 @@ def build_files(s):
     return files, folders
 
 
-def check_root(root, backend="gdrive"):
+def check_root(root, backend="github"):
     """A new library needs an empty folder or a new one; any Markdown file means an existing library.
     In a GitHub checkout the repository's own files (REPO_FILES) do not count."""
     if os.path.exists(root) and not os.path.isdir(root):
@@ -272,7 +257,7 @@ def write_files(root, files, folders):
 
 def create_library(root, s):
     root = os.path.abspath(os.path.expanduser(root))
-    check_root(root, s.get("backend", "gdrive"))
+    check_root(root, s.get("backend", "github"))
     files, folders = build_files(s)
     write_files(root, files, folders)
     return root, files, folders
@@ -337,14 +322,8 @@ def instructions_line(reg, language=None):
 
 
 def is_our_line(line):
-    """Both forms (libraries listed, or registry in Drive) start with the same words."""
+    """Our line starts with the same words in every language."""
     return any(line.lstrip().startswith(p.strip().rstrip(":：")) for p in LINE_PREFIX.values())
-
-
-def drive_line(folder, language=None):
-    if not re.fullmatch(r"[A-Za-z0-9_-]{10,}", folder or ""):
-        raise kbconf.ConfigError(f"not a Drive folder ID: {folder!r}")
-    return DRIVE_LINE[lang_key(language)].format(folder=folder)
 
 
 def upsert_line(text, line):
@@ -475,26 +454,25 @@ def main():
     p = sub.add_parser("defaults")
     p.add_argument("--preset", choices=PRESETS)
     p.add_argument("--language")
-    for c in ("plan", "write", "render"):
+    for c in ("plan", "write"):
         p = sub.add_parser(c)
-        p.add_argument("--out" if c == "render" else "--root", required=True)
+        p.add_argument("--root", required=True)
         p.add_argument("--preset", required=True, choices=PRESETS)
         for opt in ("label", "id", "scope", "language", "timezone", "date"):
             p.add_argument("--" + opt)
         p.add_argument("--sensitivity", choices=["on", "off"])
         p.add_argument("--convert", choices=["on", "off"])
         p.add_argument("--sources", choices=["on", "off"])
-        p.add_argument("--backend", choices=["gdrive", "github"], default="gdrive")
+        p.add_argument("--backend", choices=["github"], default="github")
     p = sub.add_parser("register")
     p.add_argument("--registry")
     for opt in ("id", "label", "scope", "root"):
         p.add_argument("--" + opt, required=True)
-    p.add_argument("--type", required=True, choices=["local", "gdrive", "github"])
+    p.add_argument("--type", required=True, choices=["github"])
     p.add_argument("--language")
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("instructions")
     p.add_argument("--registry")
-    p.add_argument("--drive-folder")
     p.add_argument("--language")
     p.add_argument("--file")
     p.add_argument("--apply", action="store_true")
@@ -514,14 +492,6 @@ def main():
             if a.cmd == "write":
                 write_files(root, files, folders)
                 print(f"result: written {len(files)} files and {len(folders)} folders")
-        elif a.cmd == "render":
-            s = settings(a)
-            out = os.path.abspath(os.path.expanduser(a.out))
-            check_root(out, s["backend"])
-            files, folders = build_files(s)
-            write_files(out, files, [])
-            print(plan_text(out, s, files, folders))
-            print(f"result: rendered {len(files)} files; create the folders in the library: {', '.join(folders)}")
         elif a.cmd == "register":
             path = registry_path(a.registry)
             entry = registry_entry(a.id, a.label, a.scope, a.type, a.root)
@@ -529,8 +499,6 @@ def main():
             print(f"registry: {path}")
             print(json.dumps(entry, ensure_ascii=False))
             print("result: " + ("would add" if a.dry_run else "added"))
-        elif a.cmd == "instructions" and a.drive_folder:
-            print(drive_line(a.drive_folder, a.language))
         elif a.cmd == "instructions":
             path = registry_path(a.registry)
             reg = kbconf.load_json(path)

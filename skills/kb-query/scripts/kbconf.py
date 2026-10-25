@@ -17,6 +17,11 @@ Subcommands (results on stdout, logs on stderr):
   names    LIBRARY_ROOT_OR_KB_JSON          print the resolved names, one "key: value" per line
   limits   --language LANG                  print the default Table D length limits for a language
   validate LIBRARY_ROOT_OR_KB_JSON          check _kb.json; exit 3 on problems
+  scan-a   FILE [FILE ...] [--keep-last N]  list class-A candidates (ID, card and account numbers,
+                                            unmasked passwords and codes), starred; exit 3 on any
+  spec     LIBRARY_ROOT [--with-revisions]  print the library spec for intake: the whole text without its
+                                            revision notes (their line ranges are named instead), then
+                                            which of Tables A to F were found by their titles
 
 Only the Python 3 standard library is used. Python 3.8 or newer.
 """
@@ -170,7 +175,9 @@ def load_registry(path=None):
     raise ConfigError("no registry found; looked in: " + ", ".join(p for p in paths if p))
 
 
-BACKENDS = ("gdrive", "github")
+BACKENDS = ("github",)
+OTHER_BACKENDS = {"gdrive": "Google Drive libraries: use walkwithedi/drive-wiki",
+                  "local": "local folders: use evergreen-wiki"}
 GITHUB_ROOT_RE = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 
 
@@ -197,11 +204,11 @@ def check_registry(reg):
             problems.append(f"{where}.id {lid!r} is used twice")
         seen.add(lid)
         b = lib.get("backend") or {}
-        if b.get("type") == "local":
-            problems.append(f"{where}.backend.type local is not supported: these skills serve Google Drive "
-                            "and GitHub libraries only; keep local folders with evergreen-wiki")
+        if b.get("type") in OTHER_BACKENDS:
+            problems.append(f"{where}.backend.type {b['type']} is not supported: these skills serve GitHub "
+                            f"libraries only ({OTHER_BACKENDS[b['type']]})")
         elif b.get("type") not in BACKENDS:
-            problems.append(f"{where}.backend.type must be gdrive or github")
+            problems.append(f"{where}.backend.type must be github")
         if not b.get("root"):
             problems.append(f"{where}.backend.root is required")
         elif b.get("type") == "github" and not GITHUB_ROOT_RE.fullmatch(str(b["root"])):
@@ -273,8 +280,8 @@ def validate(raw):
             problems.append(f"unknown key {k!r}")
     if raw.get("metadata", "yaml") not in ("yaml", "text"):
         problems.append("metadata must be yaml or text")
-    if raw.get("delivery", "") not in ("", "zip", "direct"):
-        problems.append("delivery must be zip or direct")
+    if raw.get("delivery", "") not in ("", "direct"):
+        problems.append("delivery must be direct (or left empty)")
     problems += check_convert(raw.get("convert", {}))
     problems += check_intake(raw.get("intake", {}))
     problems += check_sources(raw.get("sources", {}))
@@ -338,7 +345,7 @@ def check_sources(src):
 
 def keeps_sources(cfg, backend_type="local"):
     """True when intake copies originals into the library: sources.keep is on and the library is a
-    local one delivered directly (zip and Drive deliveries never carry originals)."""
+    local one (a GitHub library never carries originals)."""
     return bool((cfg.get("sources") or {}).get("keep")) and backend_type == "local" and \
         default_delivery(cfg, backend_type) == "direct"
 
@@ -421,10 +428,232 @@ def default_limits(language):
 
 
 def default_delivery(cfg, backend_type):
-    """direct for every backend; zip only when set, or when a Drive library has its own inbox script."""
-    if cfg.get("delivery"):
-        return cfg["delivery"]
-    return "zip" if backend_type == "gdrive" and cfg.get("inbox") else "direct"
+    """Always direct: the files are written into the checkout after a preview."""
+    return "direct"
+
+
+# ---------- tables of the spec ----------
+# A table starts at its title line: a short line that names it near its start ("2. Table B: term fixes",
+# "5. 表 E（Table E）：实体", "五、表E　实体"); mentions of a table inside sentences are not titles. The
+# section runs to the next title. Its rows are the lines split by "｜", "|" or "→" into two or more
+# cells; the first row is the header (a lead-in such as "列：" before it is dropped), notes and blank
+# lines between the header and the rows are skipped, and the table ends at the first other line
+# after its rows. A table written as running text (one line per partition, no separators) has no
+# rows: spec_section gives its lines.
+
+TABLE_LABEL = re.compile(r"(?:Table|表)\s*([A-F])\b")
+SEPARATORS = ("｜", "|", "→")
+
+
+def title_letter(line):
+    """The letter of the table this line is the title of, or None."""
+    s = line.strip()
+    m = TABLE_LABEL.search(s)
+    rest = re.sub(r"（[^（）]*）|\([^()]*\)", "", s[m.end():]) if m else ""  # a bracketed note may hold commas
+    if not m or m.start() > 8 or len(s) > 40 or row_cells(s) or re.search(r"[。，、；,;]", rest):
+        return None  # a sentence that mentions tables ("see Table A, Table B") is no title
+    return m.group(1)
+
+
+def row_cells(line):
+    """The cells of a table row, or None when the line is no row (or a --- separator row)."""
+    s = line.strip()
+    for sep in SEPARATORS:
+        if sep in s:
+            if sep == "|" or sep == "｜":
+                s = s.strip(sep)
+            cells = [c.strip() for c in s.split(sep)]
+            if len(cells) < 2:
+                return None
+            if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c) and "-" in s:
+                return []
+            return cells
+    return None
+
+
+def spec_section(spec, letter):
+    """The lines of the spec's Table <letter> section after its title, or None when it has no title."""
+    lines = spec.split("\n")
+    start = next((i for i, ln in enumerate(lines) if title_letter(ln) == letter), None)
+    if start is None:
+        return None
+    end = next((j for j in range(start + 1, len(lines)) if title_letter(lines[j])), len(lines))
+    return lines[start + 1:end]
+
+
+def spec_table(spec, letter):
+    """(header cells, rows of cells) of the spec's Table <letter>, or None when it has no such table."""
+    section = spec_section(spec, letter)
+    if section is None:
+        return None
+    header, rows, gap = None, [], 0
+    for line in section:
+        cells = row_cells(line)
+        if cells == []:
+            continue  # --- separator row
+        if cells:
+            if header is None:
+                first = re.split(r"[：:]", cells[0])
+                header = [first[-1].strip()] + cells[1:] if len(first) > 1 else cells
+            else:
+                rows.append(cells)
+            gap = 0
+        elif not line.strip():
+            continue
+        elif header is not None:
+            if rows:
+                break
+            gap += 1
+            if gap > 2:
+                break
+    return (header, rows) if header else None
+
+
+# Revision notes ("修订说明：…", "本次修订说明（v5.2）", "修订历史", "Revision: …") record how the spec changed; intake
+# needs them only for topic expansion. A note runs from its first line over blank, indented and numbered
+# lines and further notes, and ends at the first other line.
+REVISION_START = re.compile(r"^\s*(?:本次)?修订(?:说明|记录|历史)|^\s*Revision(?:s| notes?)?\s*[:：(（]", re.I)
+REVISION_CONT = re.compile(r"^(?:\s|\u3000|$)|^(?:[一二三四五六七八九十]+、|\d+[.、)）]|[（(]\d+[)）]|[-*·] )")
+
+
+def revision_ranges(spec):
+    """[(first, last)] 1-based line ranges of the spec's revision notes."""
+    lines, out, i = spec.split("\n"), [], 0
+    while i < len(lines):
+        if REVISION_START.match(lines[i]) and not title_letter(lines[i]):
+            j = i + 1
+            while j < len(lines) and not title_letter(lines[j]) and not lines[j].startswith("#") and (
+                    REVISION_START.match(lines[j]) or REVISION_CONT.match(lines[j])):
+                j += 1
+            while j - 1 > i and not lines[j - 1].strip():
+                j -= 1  # trailing blank lines stay in the text
+            out.append((i + 1, j))
+            i = j
+        else:
+            i += 1
+    return out
+
+
+def spec_brief(spec, with_revisions=False):
+    """The spec text for intake: revision notes replaced by one line naming their range, and a closing
+    line on which tables were found by their titles."""
+    lines = spec.split("\n")
+    skip = [] if with_revisions else revision_ranges(spec)
+    out, k = [], 0
+    for i, line in enumerate(lines, 1):
+        if k < len(skip) and skip[k][0] <= i <= skip[k][1]:
+            if i == skip[k][0]:
+                a, b = skip[k]
+                out.append(f"[revision notes, lines {a}-{b} ({b - a + 1} lines), left out: read them for topic expansion]")
+            if i == skip[k][1]:
+                k += 1
+            continue
+        out.append(line)
+    found = [x for x in "ABCDEF" if spec_section(spec, x) is not None]
+    missing = [x for x in "ABCDEF" if x not in found]
+    out.append(f"[tables found by title: {', '.join(found) or 'none'}"
+               + (f"; not found: {', '.join(missing)}" if missing else "") + "]")
+    return "\n".join(out), skip
+
+
+def term_pairs(spec):
+    """[(original wording, standard wording)] of Table B, or None when there is no Table B."""
+    t = spec_table(spec, "B")
+    if t is None:
+        return None
+    return [(r[0], r[1] if len(r) > 1 else "") for r in t[1] if r and r[0]]
+
+
+# Cell values that mean "none" (an alias column filled with them lists no alias); one character is never an alias.
+PLACEHOLDERS = {"无", "暂无", "空", "none", "n/a", "na", "-", "--", "—", "——", "/", "／"}
+
+
+def entity_list(spec):
+    """[(name, [aliases])] of Table E, or None when there is no Table E."""
+    t = spec_table(spec, "E")
+    if t is None:
+        return None
+    header, rows = t
+    col = next((k for k, h in enumerate(header) if h.casefold() in ("aliases", "alias", "别名", "别称")), 2)
+    brackets = "([（【「《\"“)]）】」》\"”"
+    out = []
+    for r in rows:
+        if r and r[0]:
+            aliases = [x.strip().strip(brackets).strip() for x in re.split(r"[;；]", r[col] if col < len(r) else "")]
+            out.append((r[0], [a for a in aliases if len(a) >= 2 and a.casefold() not in PLACEHOLDERS]))
+    return out
+
+
+# ---------- class-A data (sensitivity.enabled) ----------
+# Mechanical safety net for what must be masked before anything is written or committed: ID numbers
+# with a valid check digit, card-like numbers, 16 to 19 digits in a row, numbers written in groups of
+# four, and a password or one-time code written after its label without asterisks. A hit is a place
+# to look at, not proof: an order number can look like a card number.
+
+ID18_RE = re.compile(r"(?<![0-9A-Za-z])([1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx])"
+                     r"(?![0-9A-Za-z])")
+LONG_RE = re.compile(r"(?<![0-9A-Za-z])(\d{16,19})(?![0-9A-Za-z])")
+GROUPED_RE = re.compile(r"(?<![0-9A-Za-z-])(\d{4}(?:[ -]\d{4}){3,4}(?:[ -]\d{1,3})?)(?![0-9A-Za-z])")
+SECRET_RE = re.compile(r"(密码|口令|验证码|校验码|动态码|password|passcode|passwd|pin|one-time code|otp|"
+                       r"verification code)\s*[:：=]\s*([^\s，,；;。]+)", re.I)
+ID_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+
+
+def id_check_ok(s):
+    total = sum(int(c) * w for c, w in zip(s[:17], ID_WEIGHTS))
+    return "10X98765432"[total % 11] == s[17].upper()
+
+
+def luhn_ok(digits):
+    total = 0
+    for i, c in enumerate(reversed(digits)):
+        d = int(c)
+        if i % 2:
+            d = d * 2 - 9 if d > 4 else d * 2
+        total += d
+    return total % 10 == 0
+
+
+def shown(value, keep=4):
+    """A hit as it may appear in a reply: everything but the last characters starred."""
+    v = re.sub(r"[ -]", "", value)
+    return "*" * max(len(v) - keep, 0) + v[-keep:]
+
+
+def scan_class_a(text, keep=4):
+    """[(line number, kind, starred value)] for every class-A candidate in text."""
+    hits = []
+    for no, line in enumerate(text.split("\n"), 1):
+        seen = set()
+        for m in ID18_RE.finditer(line):
+            if id_check_ok(m.group(1)):
+                hits.append((no, "ID number", shown(m.group(1), keep)))
+                seen.add(m.span(1))
+        for m in LONG_RE.finditer(line):
+            if any(a <= m.start(1) < b for a, b in seen):
+                continue
+            kind = "card number" if luhn_ok(m.group(1)) else "16-19 digits (order or serial number?)"
+            hits.append((no, kind, shown(m.group(1), keep)))
+        for m in GROUPED_RE.finditer(line):
+            hits.append((no, "number in groups of four", shown(m.group(1), keep)))
+        for m in SECRET_RE.finditer(line):
+            value = m.group(2)
+            if "*" not in value and any(c.isalnum() for c in value):
+                hits.append((no, f"{m.group(1)} not masked", shown(value, min(keep, 2))))
+    return hits
+
+
+def scan_files(paths, keep=4):
+    """[(path, line number, kind, starred value)] over files read as UTF-8."""
+    out = []
+    for p in paths:
+        try:
+            with open(p, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError as e:
+            raise ConfigError(f"cannot read {p}: {e}")
+        out += [(p, no, kind, v) for no, kind, v in scan_class_a(text, keep)]
+    return out
 
 
 def main():
@@ -435,10 +664,21 @@ def main():
     for c in ("show", "names", "validate"):
         p = sub.add_parser(c); p.add_argument("library")
     p = sub.add_parser("limits"); p.add_argument("--language", required=True)
+    p = sub.add_parser("scan-a"); p.add_argument("files", nargs="+")
+    p.add_argument("--keep-last", type=int, default=4)
+    p = sub.add_parser("spec"); p.add_argument("library")
+    p.add_argument("--with-revisions", action="store_true", help="keep the revision notes in")
     a = ap.parse_args()
     setup_logging(a.log_level)
     try:
-        if a.cmd == "registry":
+        if a.cmd == "scan-a":
+            hits = scan_files(a.files, a.keep_last)
+            for p, no, kind, v in hits:
+                print(f"{p}:{no}: {kind}: {v}")
+            print(f"result: {len(hits)} class-A candidates" if hits else "result: no class-A candidates")
+            if hits:
+                sys.exit(3)
+        elif a.cmd == "registry":
             reg = load_registry(a.path)
             print(json.dumps(reg, ensure_ascii=False, indent=2))
         elif a.cmd == "show":
@@ -449,6 +689,18 @@ def main():
         elif a.cmd == "limits":
             h, f = default_limits(a.language)
             print(f"heading: {h}\nfilename: {f}")
+        elif a.cmd == "spec":
+            cfg = load_library(a.library)
+            path = os.path.join(os.path.dirname(cfg["_path"]), cfg["names"]["spec"])
+            try:
+                with open(path, encoding="utf-8") as f:
+                    spec = f.read().replace("\r\n", "\n")
+            except (OSError, UnicodeDecodeError) as e:
+                raise ConfigError(f"cannot read the spec {path}: {e}")
+            text, skip = spec_brief(spec, a.with_revisions)
+            log.info("spec %s: %d chars, %d revision note range(s) left out, %d chars printed",
+                     path, len(spec), len(skip), len(text))
+            print(text)
         elif a.cmd == "validate":
             p = find_kb_json(a.library)
             problems = validate(load_json(p))

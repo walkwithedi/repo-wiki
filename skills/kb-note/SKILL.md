@@ -5,7 +5,7 @@ description: Saves a small piece of information from the conversation into the u
 
 # Quick notes: save a piece of the conversation
 
-Version: 2.3.0
+Version: 3.2.0
 
 This skill does one thing: create one new file in a library's quick-notes folder. It never edits, moves or deletes any file, and never touches the library root, archive, entities or inbox.
 
@@ -26,7 +26,7 @@ Load the registry. Match the content against each library's scope.
 1. The user named a library: use it.
 2. Exactly one scope fits: use it.
 3. None or several fit: ask "Which library: <labels>?" in one sentence. Never default.
-Then read that library's backend file (references/backend-gdrive.md or references/backend-github.md, by its type) and its _kb.json (for language, timezone, sensitivity and names).
+Then read that library's backend file (references/backend-github.md) and its _kb.json (for language, timezone, sensitivity and names).
 After the note is saved, check that library for files waiting for consolidation (references/config.md, section 5), and remind once per conversation; this skill only reminds and hands "consolidate" to kb-ingest.
 
 ## Step 3: write the note
@@ -57,14 +57,19 @@ Rules:
 
 ## Step 4: save it
 
+A GitHub library (a checkout on disk), with Python: write the finished note of step 3 to a file in the work folder, then save it in one call, which does items 1 to 5 below and the checks of step 5:
+
+  python3 scripts/note.py save <root> --topic "<short topic>" --body <work>/note.txt
+
+It first brings the checkout up to date and onto the default branch (kbgit.py sync; when that stops, nothing is written: report its lines), then names the file (item 2), creates the notes folder when it is missing, refuses unmasked class-A data with sensitivity enabled (mask it in the note and save again), writes the note as a new file, commits and pushes it, checks that it is there and prints the backlog of step 5 ("remind" when it is due). The note counts as saved only after it printed "pushed:"; exit 4 or 5 means written but not pushed: say so with its message. Then reply as step 5 says. Otherwise:
+
 1. Find the notes folder (names.notes_dir) in the library root with find_folder.
    - One: use it.
-   - Several (Drive): use the oldest and mention the duplicates in the reply.
    - None: ensure_folder, and mention "notes folder created" in the reply.
 2. File name: YYYYMMDD-HHMM_<short-topic>.md in the library timezone. The short topic is a few words summing up the content, no punctuation or slashes; in a family library include who it concerns. Several notes in the same minute: add -2, -3.
 3. write_new in the notes folder with the content from step 3.
 4. On failure retry once. If it still fails, give the reason and show the full note in the reply so the user can save it or ask again later.
-5. A GitHub library: commit and push the one new file as the backend file says ("Commit and push"). The note counts as saved only after the push succeeded.
+5. A GitHub library: python3 scripts/kbgit.py commit <root> --title "<Quick note: file name>" --path <notes_dir>/<file name> (the backend file, "Commit and push"). The note counts as saved only after it printed "pushed:". With sensitivity enabled it refuses class-A data that is still unmasked: mask it in the note and commit again.
 
 ## Step 5: confirm
 
