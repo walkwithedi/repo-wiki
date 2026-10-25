@@ -1,0 +1,43 @@
+# Health check: report on the library
+
+Trigger: "health check", "check the knowledge base". Monthly is a good rhythm. Check and report only; change nothing. Each fix is a suggestion the user decides on, then handled by intake or archive mode. Files whose topic is not in Table A are reported, never expanded.
+
+## Scope
+
+Files created or modified in the last 30 days by default. "All" checks everything; for a large library warn first that it takes a while.
+
+## Checks
+
+1. Stray files in the root: names containing old_suffix, starting with snapshot_prefix or an underscore, and files that are not .md. Expected and not reported: _kb.json, _kb-params.md, the consolidation queue, the registry file kb-libraries.json (Drive libraries), the repository files of a GitHub library (references/backend-github.md, rule 3), and the inbox configuration file named in _kb.json inbox.config (if any).
+2. Same-name copies (Drive only): look up each name in scope exactly; list any with two or more copies and suggest archive mode.
+3. Table E and entity pages: list the entities folder and compare with Table E names. List entities without a page and pages without an entity.
+4. Format (YAML mode): read the start of each topic file in scope. Does it start with front matter; are required fields present; are dates ISO; do entity fields hold wording outside Table E (list wording and file); are partition and topic in Table A (report only).
+5. Suspicious dates: a year-month in the file name more than two months later than the document or event date.
+6. Basis lines in summary files: count status-card entries whose basis is not a link (count only); list every link whose target is missing from the file index (broken link).
+7. Core entity overviews: sources cited that are not in the index; an overview older than the newest related material in the index (may be stale).
+8. Index consistency: index rows with no file in the root, and files in scope missing from the index.
+9. Settings: _kb.json passes python3 scripts/kbconf.py validate <root>; partitions.max and topic_start match Table A; metadata matches the spec; partitions.fallback is a partition in Table A; _kb-params.md exists. List current and expected values.
+10. Possible duplicate entities (YAML mode): compare all Table E names and aliases in pairs for names that may mean one thing: translations, abbreviations and full names, short names, differences in case, hyphens or spaces, alternative spellings. Give each group a reason and a confidence (high: only the naming differs; medium: likely the same, depends on context; low: unsure). Different types are usually not grouped. Skip pairs the spec records as confirmed different. Suggest keeping one name and moving the others to aliases, for the user to decide; if the user says they differ, suggest recording that in the spec so it is not reported again.
+11. Quick-note backlog: if the notes folder exists, count its .md files (not the filed subfolder) and the oldest creation date. Over 20 notes or older than 14 days: suggest filing them.
+12. Consolidation backlog: rows in the consolidation queue (names.consolidation_queue) and the oldest filed time; queue rows whose file is missing from the root; topic files in scope that carry the pending mark <!-- kb:conclusions-pending --> but have no queue row. Any rows older than 14 days, or more than 30 rows: suggest consolidation.
+13. Status-card values (evidence check): take the status-card items whose basis file is in scope ("all": every item), read their basis files into <work>/sources/, at most 20 files (more: take the items with the newest basis files and say "sampled"), save the status card as <work>/<card name>, and run python3 scripts/evidence_check.py <work>/<card name> --sources <work>/sources with --item for each item checked. Report each value not found, each item without a basis link and each basis file missing from the library. Report only: a value may be derived, so the user decides with intake or consolidation. Without Python: skip this check and say "not run without Python".
+
+## Output (fixed structure)
+
+Date, library, scope
+1. Stray files: N (each)
+2. Same-name copies: N
+3. Table E and entity pages: N
+4. Format problems: N
+5. Suspicious dates: N
+6. Basis lines: N not linked, N broken (each broken one)
+7. Overviews possibly stale: N
+8. Index mismatches: N
+9. Settings: consistent / N mismatches (each)
+10. Possible duplicate entities: N groups (each: name A, name B; reason; confidence)
+11. Quick-note backlog: no notes folder / N notes, oldest YYYY-MM-DD
+12. Consolidation backlog: no queue / N files, oldest YYYY-MM-DD HH:MM; N rows without file, N marked files without row
+13. Status-card values: N items checked (sampled / all in scope), N values not found, N without basis link, N basis files missing (each: item number, value, basis file)
+Suggested actions: three to five, by priority, each naming the mode that handles it.
+
+When a check finds many items, count first and sample; over 20 in one check, list the first 20 and give the total.
