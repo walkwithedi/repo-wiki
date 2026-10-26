@@ -218,6 +218,8 @@ def check_registry(reg):
     prefs = reg.get("preferences", {})
     if prefs and prefs.get("output") not in (None, "markdown", "plain"):
         problems.append("preferences.output must be markdown or plain")
+    if prefs and prefs.get("citations") not in (None, "always", "on_request"):
+        problems.append("preferences.citations must be always or on_request")
     return problems
 
 

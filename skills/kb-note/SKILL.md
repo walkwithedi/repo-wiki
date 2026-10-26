@@ -5,7 +5,7 @@ description: Saves a small piece of information from the conversation into the u
 
 # Quick notes: save a piece of the conversation
 
-Version: 3.2.0
+Version: 3.3.0
 
 This skill does one thing: create one new file in a library's quick-notes folder. It never edits, moves or deletes any file, and never touches the library root, archive, entities or inbox.
 
@@ -18,7 +18,7 @@ Read references/config.md and references/environment.md once before starting.
 3. If it could refer to several places, ask in one sentence which one. Do not guess.
 4. Unrelated things in one request: one file each.
 5. Tentative or unconfirmed statements are saved as they are, marked "unconfirmed" in the key points.
-6. Answer snapshot: when the user asks to keep a knowledge-base answer ("save this answer", "archive this answer", 「把这个回答存下来」「存档这个回答」), save the question and that answer exactly as given, with its basis lines. It is saved as a quick note like any other (step 3, with the changes listed there); it goes into the library only when the quick notes are filed.
+6. Answer snapshot: when the user asks to keep a knowledge-base answer ("save this answer", "archive this answer", 「把这个回答存下来」「存档这个回答」), save the question and that answer exactly as given, with its basis lines. An answer given without basis lines (citations on_request) is saved with the basis files of the statements it makes, taken from that answer's search in this conversation; if they are no longer there, ask kb-query where it came from first. It is saved as a quick note like any other (step 3, with the changes listed there); it goes into the library only when the quick notes are filed.
 
 ## Step 2: which library
 
@@ -53,7 +53,7 @@ Rules:
 2. With sensitivity enabled: mask ID numbers, card and account numbers, passwords and one-time codes with asterisks, keeping at most the last keep_last characters, in words and key points alike. Never add health, money or investment advice or interpretation.
 3. Extra hard rules in the library's _kb-params.md also apply here.
 4. Dates, numbers, names and organisations exactly as the user wrote them. A relative date ("next Wednesday") gets the computed date in brackets in the key points, marked "computed".
-5. Answer snapshot (step 1, rule 6): Source is "knowledge base answer" (「知识库问答」). Words hold the user's question and the answer exactly as given, basis lines included. The first key point is "answer snapshot of YYYY-MM-DD, not updated when its sources change" (「YYYY-MM-DD 的问答快照，不随来源更新」); the others list the basis files the answer names. The short topic in the file name starts with "answer" (「问答」).
+5. Answer snapshot (step 1, rule 6): Source is "knowledge base answer" (「知识库问答」). Words hold the user's question and the answer exactly as given, basis lines included. The first key point is "answer snapshot of YYYY-MM-DD, not updated when its sources change" (「YYYY-MM-DD 的问答快照，不随来源更新」); the others list the basis files the answer names, or for an answer without basis lines the basis files found as in step 1, rule 6. The short topic in the file name starts with "answer" (「问答」).
 
 ## Step 4: save it
 

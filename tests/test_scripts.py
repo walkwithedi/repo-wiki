@@ -130,6 +130,14 @@ class KbconfTest(Tmp):
             {"id": "work", "label": "Work", "scope": "team", "backend": {"type": "github", "root": "kb"}}]}
         self.assertIn("<owner>/<repo>", " ".join(kbconf.check_registry(bad)))
 
+    def test_registry_citations(self):
+        lib = {"id": "work", "label": "Work", "scope": "team", "backend": {"type": "github", "root": "octo/kb"}}
+        for value in ("always", "on_request"):
+            ok = {"schema": 1, "preferences": {"citations": value}, "libraries": [lib]}
+            self.assertEqual(kbconf.check_registry(ok), [])
+        bad = {"schema": 1, "preferences": {"citations": "never"}, "libraries": [lib]}
+        self.assertIn("preferences.citations must be always or on_request", " ".join(kbconf.check_registry(bad)))
+
 
 class CleanTest(Tmp):
     def test_clean(self):

@@ -34,6 +34,7 @@ If none exists, nothing is set up yet. Never guess a repository or path. Offer s
 - scope: one sentence saying what belongs in the library. It is how you decide which library a request or question belongs to.
 - backend.type: github; root is the repository as "<owner>/<repo>", used from a local checkout in a coding agent session; read references/backend-github.md. These skills serve GitHub libraries only: an entry of another type is refused (kbconf.py reports it). One repository holds one library, and its registry lists that one library.
 - preferences.output: markdown (default) or plain. With plain, replies use no Markdown markup at all (no headings, bold, bullets, code blocks or tables); number items as "1." or "(1)" instead. Knowledge files keep their own formats either way.
+- preferences.citations: always (default) or on_request. With always, kb-query names the basis file of every fact. With on_request, replies read as plain statements: no basis files, no library label, and no words about knowledge bases, searching or sources; the basis files are given only when the user asks where something came from (kb-query, "Citations on request").
 - preferences.language: language of replies when a library does not set its own.
 
 ## 2. Library files: how one library works

@@ -96,6 +96,7 @@ Knowledge base registry (kb-libraries.json):
 - `scope` decides what belongs in the library; keep it a clear sentence.
 - `backend.root` is the repository as `<owner>/<repo>`; the skills work only in a checkout whose origin is that repository.
 - `preferences.output` may be added: `markdown` or `plain` (no Markdown markup in replies).
+- `preferences.citations` may be added: `always` (default; every fact names its basis file) or `on_request` (answers read as plain statements; the basis files are listed when you ask where something came from).
 - To change the scope or label, edit the block by hand and commit, or say "init" and let init mode show the change first.
 
 ## Settings of a library
