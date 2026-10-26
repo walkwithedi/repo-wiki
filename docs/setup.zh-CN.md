@@ -96,6 +96,7 @@ git add -A .claude/skills && git commit -m "知识库 skill 升级到 <版本>" 
 - `scope` 决定哪些内容归这个库，写成清楚的一句话。
 - `backend.root` 是「<owner>/<repo>」形式的仓库名；skill 只在 origin 指向这个仓库的检出目录里工作。
 - 可以加上 `preferences.output`：`markdown`，或 `plain`（回复不用 Markdown 标记）。
+- 可以加上 `preferences.citations`：`always`（默认，每条事实注明依据文件），或 `on_request`（回答只陈述事实，追问出处时再列出依据文件）。
 - 要改范围或名称，手工改这一块再提交，或者说「初始化」，让初始化模式先把改动列给你看。
 
 ## 库的配置

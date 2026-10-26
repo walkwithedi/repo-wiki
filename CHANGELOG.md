@@ -2,6 +2,15 @@
 
 Releases follow the "Version:" line of the three SKILL.md files; merging a version change to main publishes v<version> (.github/workflows/release.yml).
 
+## 3.3.0
+
+Citations can be given on request, and writing tasks are checked against the library.
+
+- Registry preference `preferences.citations`: `always` (default, unchanged: every fact names its basis file) or `on_request`. With `on_request`, kb-query answers as plain statements: no basis files, no library label, no consolidation reminder and no words about knowledge bases, searching or sources. Nothing found is stated as no record; general knowledge goes in a separate paragraph. When sources disagree, the current value comes first, then one sentence with the other version and its date. Unconsolidated files, answer snapshots and git history get no notice of their own; quick notes are marked unconfirmed. Asked where something came from, kb-query lists the full basis file names for each statement of the previous answer, searching again only when the earlier results are no longer in the conversation.
+- kb-query also runs before a writing task (trim, polish, draft, translate, reply) whose content falls in a library's scope: it searches the names, terms, numbers and dates, does the task as asked without changing the meaning, and lists anything that differs from the records in a closing "to check" section.
+- kb-note: an answer snapshot of an answer given without basis lines records the basis files from that answer's search.
+- kbconf.py rejects any `preferences.citations` value other than `always` or `on_request`.
+
 ## 3.2.0
 
 Reads stay in the local checkout and only writes reach the remote; the mechanical steps run as scripts.

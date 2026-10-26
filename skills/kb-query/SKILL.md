@@ -1,11 +1,11 @@
 ---
 name: kb-query
-description: Answers questions from the user's own knowledge base of Markdown files in a GitHub repository by searching it first, never from memory; each fact names its source file, and when nothing is found it says where it looked. Use when a question may be recorded there - what was agreed or decided, current values and limits, owners, dates, status, open items, terms, how something changed; personal records such as IDs, health, insurance, money, contracts, due dates; or whether some material is already filed. Examples: "When is the launch date?", "Who owns Project Atlas?". When the user has a knowledge base set up (a kb-libraries.json registry, KB_LIBRARIES, or libraries named in project instructions), check it before searching code or answering from general knowledge, even if the user does not say "check my knowledge base". Not for unrelated questions or the code of these skills. Read-only - intake, archive, health checks and setup belong to kb-ingest; saving notes belongs to kb-note.
+description: Answers questions from the user's own knowledge base of Markdown files in a GitHub repository by searching it first, not from memory; facts name their source files (or only when asked). Use when a question may be recorded there - what was agreed or decided, current values and limits, owners, dates, status, open items, terms, how something changed; personal records such as IDs, health, insurance, money, contracts, due dates; or whether some material is filed. Also before a writing task (trim, polish, draft, reply) whose content falls in a library's scope, to check names, terms and figures. Examples: "When is the launch date?", "Who owns Project Atlas?". When a knowledge base is set up (a kb-libraries.json registry, KB_LIBRARIES, or project instructions), check it before code or general knowledge, even if the user does not say "check my knowledge base". Not for unrelated questions or the code of these skills. Read-only; intake, archive, health checks and setup: kb-ingest; notes: kb-note.
 ---
 
 # Knowledge base questions
 
-Version: 3.2.0
+Version: 3.3.0
 
 Read-only: search, read and answer. Never create, change, move or delete anything in a library. Partitions, topics and terms are read from the library, never from this file.
 
@@ -13,16 +13,17 @@ Read references/config.md and references/environment.md once before starting.
 
 ## Step 1: which library
 
-1. A question unrelated to every library's scope (general knowledge, writing, code): do not search; answer normally.
+1. A question or task unrelated to every library's scope (general knowledge, writing on other subjects, code): do not search; answer normally.
 2. Load the registry and match the question against each scope. Search the libraries that fit.
 3. Unclear, or more than one could hold the answer: search every library that might, without asking.
 4. If unsure whether a question falls in a library, read that library's spec Table A to check; still unsure, treat as rule 3.
 5. Intake, archive, health check or setup requests belong to kb-ingest.
-6. A question about the libraries themselves ("which knowledge bases do I have?", "where does this go?"): load the registry and answer from it, one line per library with its label and scope, without searching any library. No registry: references/config.md, section 1.
+6. A writing task (trim, polish, draft, translate, reply) whose content falls in a library's scope: search the names, terms, numbers and dates it mentions (Step 3), then do the task as asked, keeping the user's meaning. Do not change the text to match the library; after the result, add a section "to check" (「待核对」) listing each name, term, number or date that differs from the records, with the recorded form. Nothing differs: no such section. Step 4 rules 2, 4 and 7 to 10 apply to that section only.
+7. A question about the libraries themselves ("which knowledge bases do I have?", "where does this go?"): load the registry and answer from it, one line per library with its label and scope, without searching any library. No registry: references/config.md, section 1.
 
-For each library searched, read its backend file (references/backend-github.md) and _kb.json. Start the answer with: Library: <label(s)>.
+For each library searched, read its backend file (references/backend-github.md) and _kb.json. Start the answer with: Library: <label(s)> (not with citations on_request).
 
-After the answer, check each library searched for files waiting for consolidation (references/config.md, section 5); remind once per conversation. This skill only reminds and hands "consolidate" to kb-ingest.
+After the answer, check each library searched for files waiting for consolidation (references/config.md, section 5); remind once per conversation (not with citations on_request). This skill only reminds and hands "consolidate" to kb-ingest.
 
 ## Step 2: which file first
 
@@ -84,3 +85,17 @@ History: only when the user asks for old versions, search the archive folder, an
 11. With sensitivity enabled: never show class-A data in full (ID, card and account numbers, passwords, codes); mask with asterisks, at most the last keep_last characters. No health, money or investment advice and no interpretation of results, diagnoses, returns or coverage; report only what is recorded.
 12. Answer only what was asked; mention the search process only when nothing was found or sources conflict.
 13. Replies follow the library language and preferences.output.
+14. With preferences.citations on_request, see "Citations on request"; it replaces rules 2, 4 to 10 and 12 where they differ.
+
+## Citations on request
+
+When the registry sets preferences.citations to on_request (references/config.md, section 1), search and choose exactly as above, but write the reply as plain statements of fact:
+
+1. No basis file names, no library label, no consolidation reminder, and no words about a knowledge base, a library, searching, querying, records as evidence or sources (such as 「知识库」「查询」「检索」「依据」「佐证」「根据记录」).
+2. Nothing found: say only that there is no record of it (「没有相关记录」). If general knowledge is really needed, answer it in a separate paragraph worded so it reads as general practice, not as a recorded fact; no heading.
+3. Sources disagree (status card and source material, two files, a dated value and a newer one): give the current value first, then one sentence "another version says ... (date)" (「另有一种说法是……（日期）」), with no file names. Do not decide who is right.
+4. A file not yet consolidated, an answer snapshot or git history: no notice of its own. When it changes the answer, write it as in item 3, with its date.
+5. A quick note: mark the statement "unconfirmed" (「未核实」), without the file name.
+6. Keep the rest: standard terms, exact numbers and dates with units, open items with their deadlines, masking with sensitivity enabled.
+7. The user asks where something came from (「出处」「依据」「哪来的」「来源」, "source"): do not search again; for the previous answer, list each statement with the full file name(s) it rests on, with the library when several were searched, and each version separately where sources disagreed. If the earlier search results are no longer in the conversation, search again first.
+8. Writing tasks (Step 1, rule 6): the "to check" section follows items 1 to 5.
