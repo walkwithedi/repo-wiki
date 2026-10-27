@@ -40,7 +40,7 @@ Material is read where it is and never moved, changed or committed: only the cle
 ## A rhythm that works
 
 - File material when it arrives; the library is searchable at once.
-- Say "consolidate" when reminded, or once a week.
+- Say "consolidate" when reminded, or once a week. Or let a scheduled task (Claude Code scheduled tasks) say "scheduled consolidation" each night: it accepts the changes on its own, turns those the evidence check flags into open items, and sends a notification when it consolidated something or stopped.
 - Say "file my quick notes" when kb-note says notes are piling up.
 - Run a "health check" once a month.
 

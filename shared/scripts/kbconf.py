@@ -83,9 +83,13 @@ CONVERT_DEFAULTS = {"enabled": False, "image_limit": 10, "min_pdf_chars_per_page
 # trigger check to consolidation (scripts/prep.py, scripts/consolidate.py); full runs every step per
 # item. consolidate_files: files handled in one consolidation round. Many files at once
 # (scripts/batch_plan.py): a batch closes at batch_files files or batch_mb megabytes; more than one
-# batch turns batch mode on.
+# batch turns batch mode on. confirm: ask asks once before a fast intake run; command takes an
+# explicit request to file as that confirmation when the material makes one batch.
+# scheduled_rounds: consolidation rounds one scheduled (unattended) run does at most.
 INTAKE_MODES = ("fast", "full")
-INTAKE_DEFAULTS = {"mode": "fast", "batch_files": 10, "batch_mb": 20, "consolidate_files": 10}
+INTAKE_CONFIRM = ("ask", "command")
+INTAKE_DEFAULTS = {"mode": "fast", "confirm": "ask", "batch_files": 10, "batch_mb": 20,
+                   "consolidate_files": 10, "scheduled_rounds": 3}
 
 # Originals kept in the library (local libraries with direct delivery only): keep copies each
 # filed original into names.sources_dir under its topic file's name; one larger than max_mb
@@ -326,6 +330,9 @@ def check_intake(intake):
         elif k == "mode":
             if v not in INTAKE_MODES:
                 problems.append("intake.mode must be fast or full")
+        elif k == "confirm":
+            if v not in INTAKE_CONFIRM:
+                problems.append("intake.confirm must be ask or command")
         elif not (isinstance(v, int) and not isinstance(v, bool) and v >= 1):
             problems.append(f"intake.{k} must be a whole number of 1 or more")
     return problems

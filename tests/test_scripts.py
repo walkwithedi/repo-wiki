@@ -984,6 +984,16 @@ class IntakeSettingsTest(Tmp):
         self.assertEqual(kbconf.validate({"schema": 1, "intake": {"mode": "full"}}), [])
         self.assertTrue(kbconf.validate({"schema": 1, "intake": {"mode": "slow"}}))
 
+    def test_confirm_and_scheduled_rounds(self):
+        write(self.p("_kb.json"), json.dumps({"schema": 1}))
+        cfg = kbconf.load_library(self.d)
+        self.assertEqual(cfg["intake"]["confirm"], "ask")
+        self.assertEqual(cfg["intake"]["scheduled_rounds"], 3)
+        self.assertEqual(kbconf.validate(
+            {"schema": 1, "intake": {"confirm": "command", "scheduled_rounds": 2}}), [])
+        self.assertTrue(kbconf.validate({"schema": 1, "intake": {"confirm": "never"}}))
+        self.assertTrue(kbconf.validate({"schema": 1, "intake": {"scheduled_rounds": 0}}))
+
 
 if __name__ == "__main__":
     unittest.main()
