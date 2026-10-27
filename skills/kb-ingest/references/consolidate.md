@@ -1,8 +1,8 @@
 # Consolidation: conclusions and summary files for items filed by fast intake
 
-Fast intake (references/fast.md) files each item without its key conclusions and without comparing it with the status card. Consolidation does that work for the files in the consolidation queue (names.consolidation_queue), a round at a time: it reads each file closely where needed, writes its key conclusions into it, judges the triggers, and rewrites the summary files once per round after the user has reviewed every change. Nothing reaches the status card without that review.
+Fast intake (references/fast.md) files each item without its key conclusions and without comparing it with the status card. Consolidation does that work for the files in the consolidation queue (names.consolidation_queue), a round at a time: it reads each file closely where needed, writes its key conclusions into it, judges the triggers, and rewrites the summary files once per round after the user has reviewed every change. Nothing reaches the status card without that review, except in a scheduled run (below), which the user allowed beforehand and reports afterwards.
 
-Trigger: "consolidate", "整合", "整合入库", the choice after a fast intake or a batch run, or the reminder of references/config.md, section 5.
+Trigger: "consolidate", "整合", "整合入库", the choice after a fast intake or a batch run, or the reminder of references/config.md, section 5. A scheduled task that says "scheduled consolidation" ("定时整合") runs it unattended, as "Scheduled run" says.
 
 ## Before the first round
 
@@ -45,3 +45,17 @@ Without Python: do the same by hand. For a close-read file write the topic file 
 ## Rules that do not change
 
 Every judgement needs a quote. Never infer, never trim or edit body text, never delete: old versions of topic files and summary files move to the archive folder. Process data never triggers. A file that the status card cannot be matched with goes into open items as SKILL.md says.
+
+## Scheduled run
+
+A scheduled task can run consolidation each night with nobody watching: its prompt names the library and says "scheduled consolidation" ("定时整合"). Everything above applies, with these differences:
+
+1. Nobody answers, so never ask. The library comes from the prompt or the project instructions; when it is not clear, stop and notify (item 6). There is no reminder of section 5 of references/config.md and no closing choice.
+2. Empty queue (or no queue file): do nothing more. No commit, no readme, no notification; end with one line saying the queue was empty.
+3. At most intake.scheduled_rounds rounds (default 3), each its own delivery and commit; the rest waits for the next run.
+4. Step 5 takes Accept all, and the readme's change section says "scheduled run, all accepted". Except:
+   - A change the evidence check flags (a value not found in its basis file, no basis link, basis file missing) is not applied to the status card. It becomes an open item instead: what the change would have said, the evidence-check line, and the file and section, for the user to decide. The file still leaves the queue.
+   - Disputed items are handled as above: the status card keeps its wording and an open item records both quotes.
+   - A topic expansion or a new entity is applied as usual and listed under "Topics added this run (please review)".
+5. A failure stops the run where it is: a sync that stops (exit 3 or 4), a conflict with newer commits (exit 3 of the commit; never drop-local, never force), a push that failed (exit 5), a check that fails, a spec or status card not found. Rounds already delivered stay; nothing more is written. Notify (item 6) with the step, the message, and what is left.
+6. Notification: when the run consolidated at least one file or stopped on a failure, send one push notification to the user (the environment's notification tool; without one, the final reply is the record). In the library language, at most a few lines: library label; files consolidated and still in the queue; status-card, change-log and open-item changes by count, with the status-card items by name; changes turned into open items by the evidence check; topics or entities added; the commit short hashes; on a failure, what stopped and what is left. Send nothing when the queue was empty. Never send library content beyond these names and counts to any other service.

@@ -1,16 +1,16 @@
 ---
 name: kb-ingest
-description: Files Office, PDF, mail, pictures and text into an evergreen Markdown library in a GitHub repository. Intake ("file these", "add to the knowledge base", "intake", "continue intake", "finish intake", or uploads): files each item by the library spec, searchable at once; removes duplicates, spots new versions, large folders in batches. Consolidation ("consolidate"): adds key conclusions, updates the status card after review. Archive ("archive old versions", "clean up duplicates"): moves old copies after a preview. Health check ("check the knowledge base", "health check"): reports only. Init ("get started with the knowledge base", "first time", "set up a knowledge base", "new library", "init"). Quick-note filing ("file my quick notes", "notes are filed"). Use it for any filing or setup even without these words. Not for questions (kb-query) or saving one note (kb-note).
+description: Files Office, PDF, mail, pictures and text into an evergreen Markdown library in a GitHub repository. Intake ("file these", "add to the knowledge base", "intake", "continue intake", "finish intake", or uploads): files each item by the library spec, searchable at once; removes duplicates, spots new versions, large folders in batches. Consolidation ("consolidate", or "scheduled consolidation" from a scheduled task): adds key conclusions, updates the status card after review. Archive ("archive old versions", "clean up duplicates"): moves old copies after a preview. Health check ("check the knowledge base", "health check"): reports only. Init ("get started with the knowledge base", "first time", "set up a knowledge base", "new library", "init"). Quick-note filing ("file my quick notes", "notes are filed"). Use it for any filing or setup even without these words. Not for questions (kb-query) or saving one note (kb-note).
 ---
 
 # Knowledge base intake, archive, health check and init
 
-Version: 3.3.0
+Version: 3.4.0
 
 ## Modes
 
 - Intake: fast by default. When _kb.json intake.mode is fast (also when it is missing) and the request does not ask for a full intake ("full intake", "完整入库"), read references/fast.md after step 0: each item goes through Check 1, steps 1, 2 and 4 and is delivered at once, searchable as soon as it is written; step 3 and step 5 wait for consolidation. intake.mode full, or a request for a full intake: steps 0 to 5 below for every item.
-- Consolidation: "consolidate", "整合", or the choice offered after a fast intake or by the reminder in references/config.md, section 5. After step 0, read references/consolidate.md: it writes the key conclusions of the queued files (step 3), judges the triggers (step 5) and rewrites the summary files once per round after the user reviews the changes.
+- Consolidation: "consolidate", "整合", "scheduled consolidation" ("定时整合", unattended: references/consolidate.md, "Scheduled run"), or the choice offered after a fast intake or by the reminder in references/config.md, section 5. After step 0, read references/consolidate.md: it writes the key conclusions of the queued files (step 3), judges the triggers (step 5) and rewrites the summary files once per round after the user reviews the changes.
 - Archive: after step 0, read references/archive.md and follow it instead of the five steps.
 - Health check: after step 0, read references/lint.md. Report only, change nothing.
 - Quick-note filing: read references/notes.md and follow its two rounds; its intake part still uses step 0 and the intake mode of the library.
@@ -97,6 +97,7 @@ For material in scope, set the date and fields as params require. Common fields:
 - Short title: a few words naming the material, no version number. Embed what tells similar material apart: the period for recurring material, the reporting party (or family member in a life library) for one template filled by several parties, a distinguishing word for similar topics.
 - Proposed file name: <partition>_<topic>_<type>_<short title>.md, no date suffix, no longer than the Table D limit (shorten the short title if needed). Spaces in topic, type and short title become hyphens in the file name (topic "Primary home" -> 05_Primary-home_...); underscores separate the four parts only. Build it with python3 scripts/meta.py name --partition <nn> --topic "<topic>" --type "<type>" --title "<short title>" --max-len <Table D file-name limit>; when it reports too long, shorten the short title and run it again.
 - Document date, when params ask for the file's last-modified time: python3 scripts/meta.py date <original file> [<original file> ...] --timezone <library timezone> reads it from the document's own metadata where it has one (copying a file changes its file system time, not that) and says when only the file system time was available.
+- Missing date: when the material and the conversation give no date params ask for, ask once before writing, as references/fast.md says (step 3, "Missing date"); never fill one in yourself.
 
 In YAML mode, map entities as entity-yaml.md says and add one line: Entities: <linked names> | New: <name or none> | Kept as text: <wording or none>.
 

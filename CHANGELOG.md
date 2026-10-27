@@ -2,6 +2,16 @@
 
 Releases follow the "Version:" line of the three SKILL.md files; merging a version change to main publishes v<version> (.github/workflows/release.yml).
 
+## 3.4.0
+
+An explicit request to file can serve as the confirmation, missing dates are asked for before writing, and consolidation can run on a schedule.
+
+- `_kb.json` intake key `confirm`: `ask` (default, unchanged) or `command`. With `command`, an explicit request to file ("intake", "file this") is the confirmation of a fast intake when the library is clear and the material makes one batch, so the item is written and pushed without a question; material that makes more than one batch still gets the batch plan first.
+- Missing dates: when params ask for a date and neither the material nor the conversation gives one, fast and full intake ask once before writing (including "Not known, leave it empty"), record the answer with the note params use for a date not taken from the material, and never fill one in; each item still makes one commit.
+- Scheduled consolidation ("scheduled consolidation", "定时整合"): a scheduled task runs consolidation unattended and never asks. An empty queue makes no commit and no notification. At most `intake.scheduled_rounds` rounds (default 3), one commit each. Changes are accepted, except that a change the evidence check flags becomes an open item instead of reaching the status card, and disputed items stay open items. A failed sync, conflict, push or check stops the run where it is, with no drop-local and no force push. When files were consolidated or the run failed, one push notification gives the library, file counts, change counts with status-card item names, commit short hashes and the failure.
+- kbconf.py checks `intake.confirm` (`ask` or `command`) and `intake.scheduled_rounds` (a positive integer).
+- The Chinese description of kb-ingest names 「定时整合」.
+
 ## 3.3.0
 
 Citations can be given on request, and writing tasks are checked against the library.
