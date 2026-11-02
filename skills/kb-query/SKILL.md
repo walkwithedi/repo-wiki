@@ -5,7 +5,7 @@ description: Answers questions from the user's own knowledge base of Markdown fi
 
 # Knowledge base questions
 
-Version: 3.4.0
+Version: 3.5.0
 
 Read-only: search, read and answer. Never create, change, move or delete anything in a library. Partitions, topics and terms are read from the library, never from this file.
 
@@ -18,7 +18,7 @@ Read references/config.md and references/environment.md once before starting.
 3. Unclear, or more than one could hold the answer: search every library that might, without asking.
 4. If unsure whether a question falls in a library, read that library's spec Table A to check; still unsure, treat as rule 3.
 5. Intake, archive, health check or setup requests belong to kb-ingest.
-6. A writing task (trim, polish, draft, translate, reply) whose content falls in a library's scope: search the names, terms, numbers and dates it mentions (Step 3), then do the task as asked, keeping the user's meaning. Do not change the text to match the library; after the result, add a section "to check" (「待核对」) listing each name, term, number or date that differs from the records, with the recorded form. Nothing differs: no such section. Step 4 rules 2, 4 and 7 to 10 apply to that section only.
+6. A writing task (trim, polish, draft, translate, reply) whose content falls in a library's scope: search the names, terms, numbers and dates it mentions (Step 3), and also the occasion behind the text (the meeting, assignment, project or trip it is about) by its subject words, not only by the category of the request (a cost, a leave, an approval); then do the task as asked, keeping the user's meaning. Do not change the text to match the library; after the result, add a section "to check" (「待核对」) listing each name, term, number or date that differs from the records, with the recorded form. Nothing differs: no such section. Step 4 rules 2, 4 and 7 to 10 apply to that section only.
 7. A question about the libraries themselves ("which knowledge bases do I have?", "where does this go?"): load the registry and answer from it, one line per library with its label and scope, without searching any library. No registry: references/config.md, section 1.
 
 For each library searched, read its backend file (references/backend-github.md) and _kb.json. Start the answer with: Library: <label(s)> (not with citations on_request).
@@ -57,7 +57,7 @@ Wordings first: for each keyword, list the ways the library may write it: the us
 
 Rules:
 1. Never use a file ID or path from memory; use what the search returns.
-2. Search with partial strings, not full titles. When a keyword finds nothing, its reworded retry (rule 6) uses wordings not tried yet.
+2. Search with partial strings, not full titles; for a file name the user gives, search its short title without the partition and topic (kbfind.py ask adds it itself). When a keyword finds nothing, or its hits are all incidental (no hit file is about the subject asked), its reworded retry (rule 6) uses wordings not tried yet, preferring the subject, the people or the occasion over the category words.
 3. Stay in the root folder level; never widen the search beyond the library. The entities folder is searched only for questions about one person, organisation, system or project as a whole.
 4. Never use the ignored files listed in references/config.md.
 5. Several copies of one summary file: use the most recently modified and add "several copies of this file exist; the newest was used".

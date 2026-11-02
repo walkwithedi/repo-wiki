@@ -5,7 +5,7 @@ description: Saves a small piece of information from the conversation into the u
 
 # Quick notes: save a piece of the conversation
 
-Version: 3.4.0
+Version: 3.5.0
 
 This skill does one thing: create one new file in a library's quick-notes folder. It never edits, moves or deletes any file, and never touches the library root, archive, entities or inbox.
 

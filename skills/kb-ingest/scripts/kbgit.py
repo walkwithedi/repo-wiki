@@ -6,7 +6,9 @@
       origin HEAD, else main), then a fast-forward when the branch is only behind. A checkout on another
       branch (a cloud session checks out a branch of its own) is first switched to the default branch,
       when no tracked file has uncommitted changes and the branch holds no commit the default branch
-      lacks; otherwise it says why it stays. Prints one status line per step. --read-only (kb-query)
+      lacks; otherwise it says why it stays. In a shallow clone whose fetched history shares no commit
+      with the local branch, the fetch is deepened (500 commits at a time, at most 10 times) until it
+      does, so a branch that is only behind is not taken for diverged. Prints one status line per step. --read-only (kb-query)
       never stops: when the remote cannot be reached, the branch has diverged or cannot be switched, it
       says so and the local copy is used. Without --read-only those cases exit 3 (diverged, local changes
       in the way, another branch) or 4 (remote unreachable), and nothing is written to the library.
@@ -55,6 +57,8 @@ IDENTITY = re.compile(r"([^<>:：;；,，`*|]+?)\s*<([^<>\s@]+@[^<>\s]+)>")
 TRAILER = re.compile(r"^\s*(co-authored-by:|claude-session:|.*generated with \[?claude)", re.I)
 REJECTED = re.compile(r"\[rejected\]|non-fast-forward|fetch first|failed to push some refs", re.I)
 PUSH_TRIES = 3
+DEEPEN_STEP = 500
+DEEPEN_TRIES = 10
 NETWORK = re.compile(r"could not resolve|unable to access|connection|timed out|early eof|rpc failed|"
                      r"remote end hung up|\b50[234]\b|temporary failure|network", re.I)
 
@@ -120,6 +124,34 @@ def counts(root, br):
         return None
     ahead, behind = p.stdout.split()
     return int(ahead), int(behind)
+
+
+def connect_shallow(root, br):
+    """In a shallow clone the fetched origin/<br> can be cut off from the local branch, which then looks
+    diverged though it is only behind. Deepens the fetch, DEEPEN_STEP commits at a time, until the two
+    share a commit. Returns the number of deepening fetches when they now meet, else 0."""
+    def shallow():
+        return git(root, "rev-parse", "--is-shallow-repository", check=False).stdout.strip() == "true"
+
+    def connected():
+        return not git(root, "merge-base", "HEAD", f"origin/{br}", check=False).returncode
+
+    if not shallow() or connected():
+        return 0
+    for n in range(1, DEEPEN_TRIES + 1):
+        log.info("shallow clone, no commit shared with origin/%s; deepening by %d (try %d of %d)",
+                 br, DEEPEN_STEP, n, DEEPEN_TRIES)
+        p = with_retry(root, "fetch", f"--deepen={DEEPEN_STEP}", "origin",
+                       f"+refs/heads/{br}:refs/remotes/origin/{br}")
+        if p.returncode:
+            log.warning("deepening failed: %s", (p.stderr or p.stdout).strip())
+            return 0
+        if connected():
+            return n
+        if not shallow():
+            break
+    log.info("still no commit shared with origin/%s", br)
+    return 0
 
 
 def short(root, rev="HEAD"):
@@ -197,6 +229,11 @@ def cmd_sync(a):
         print(f"origin/{br} not found; using the local copy at {short(root)}")
         return 0
     ahead, behind = c
+    if ahead and behind:
+        n = connect_shallow(root, br)
+        if n:
+            ahead, behind = counts(root, br)
+            print(f"shallow clone: fetched more history ({n} x {DEEPEN_STEP} commits) to connect origin/{br}")
     if ahead and behind:
         print(f"diverged: {ahead} local commit(s) not on origin/{br} and {behind} new there. "
               + ("Using the local copy." if a.read_only else

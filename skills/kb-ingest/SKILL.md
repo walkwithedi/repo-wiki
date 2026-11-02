@@ -5,7 +5,7 @@ description: Files Office, PDF, mail, pictures and text into an evergreen Markdo
 
 # Knowledge base intake, archive, health check and init
 
-Version: 3.4.0
+Version: 3.5.0
 
 ## Modes
 
