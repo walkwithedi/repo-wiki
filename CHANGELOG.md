@@ -2,6 +2,20 @@
 
 Releases follow the "Version:" line of the three SKILL.md files; merging a version change to main publishes v<version> (.github/workflows/release.yml).
 
+## 3.5.0
+
+Searches rank files by their names, read the file index line by line, and writing tasks look up the occasion behind the text.
+
+- `kbfind.py ask` matches the file index line by line and prints only the matching lines, also when its entries are not separated by blank lines.
+- Source files are ordered: files the status card or index name first, then files with a keyword in their name, then in their front matter, then by keywords and blocks matched. A file whose name holds a keyword is listed even when its body does not, with its opening block.
+- Beyond the display limit, files with a keyword in their name are listed apart (up to 30); when more than 30 files hit, the output suggests adding a keyword for the subject or occasion, or using `--all`.
+- A wording shaped like a library file name (`<partition>_<topic>_<type>_<short title>`) also searches its short title, so a file is found after its partition or topic was renamed.
+- kb-query writing tasks also search the occasion behind the text (the meeting, assignment, project or trip) by its subject words, not only by the category of the request. When every hit is incidental, the keyword is retried like a search that found nothing, preferring subject, people or occasion words. A file name the user gives is searched by its short title.
+
+## 3.4.1
+
+- `kbgit.py sync` in a shallow clone: when the fetched default branch shares no commit with the local branch, it deepens the fetch in steps (500 commits, at most 10 times) until they connect, then judges behind, ahead or diverged as before. A local branch that is only behind now fast-forwards instead of being reported as diverged; if they still do not connect, it is treated as diverged. No commit is reset or dropped.
+
 ## 3.4.0
 
 An explicit request to file can serve as the confirmation, missing dates are asked for before writing, and consolidation can run on a schedule.

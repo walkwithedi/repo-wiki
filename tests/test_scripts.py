@@ -1211,6 +1211,33 @@ class KbAskTest(Tmp):
         out = kbfind("ask", self.lib, "--q", "Atlas", "--max-chars", "400")
         self.assertIn("not shown (output cap)", out)
 
+    def test_ask_index_lines_name_first_and_short_title(self):
+        # an index of one entry per line without blank lines is matched line by line
+        write(os.path.join(self.lib, "01_File-Index.md"), "# File index\n\n"
+              "05_Ops_plan_Retreat-Schedule.md ｜ retreat.xlsx\n05_Ops_memo_Other.md ｜ other.docx\n"
+              "05_Ops_memo_Many.md ｜ many.docx\n")
+        write(os.path.join(self.lib, "05_Ops_plan_Retreat-Schedule.md"), "# Schedule\n\nDay one: arrival.\n")
+        write(os.path.join(self.lib, "05_Ops_memo_Many.md"), "# Many\n\n" + "Retreat-Schedule note.\n\n" * 5)
+        out = kbfind("ask", self.lib, "--q", "Retreat-Schedule")
+        self.assertIn("== index: 01_File-Index.md | 1 blocks", out)
+        self.assertIn("-- line 3 | (no heading)\n05_Ops_plan_Retreat-Schedule.md ｜ retreat.xlsx", out)
+        self.assertNotIn("05_Ops_memo_Other.md ｜", out)
+        # a hit in the file name ranks above a file with more hits in its body
+        self.assertLess(out.index("= 05_Ops_plan_Retreat-Schedule.md"), out.index("= 05_Ops_memo_Many.md"))
+        self.assertIn("keyword in the file name", out)
+        # an old file name (renamed topic) still finds the file by its short title
+        out = kbfind("ask", self.lib, "--q", "05_Old_plan_Retreat-Schedule.md")
+        self.assertIn("Retreat-Schedule (short title of a file name)", out)
+        self.assertIn("= 05_Ops_plan_Retreat-Schedule.md", out)
+
+    def test_ask_many_files_hint(self):
+        for k in range(32):
+            write(os.path.join(self.lib, f"05_Ops_memo_N{k:02d}.md"), "# N\n\nshared word here.\n")
+        write(os.path.join(self.lib, "05_Ops_memo_shared word.md"), "# S\n\nshared word.\n")
+        out = kbfind("ask", self.lib, "--q", "shared word", "--max-files", "0")
+        self.assertIn("also with a keyword in the file name: 05_Ops_memo_shared word.md", out)
+        self.assertIn("many files hit (33)", out)
+
 
 CARD = """# 状态卡
 最后更新：2026-10-01

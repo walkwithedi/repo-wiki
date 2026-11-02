@@ -14,10 +14,14 @@
       wordings; the spec's Table B (old and standard forms) and Table E (names and aliases) add the
       other forms of each. It prints the matching blocks of the status card and the file index first
       (up to 15 each), then the open items, change log and glossary, then the source files in the
-      root (files the status card or index hits name first, then by keywords and blocks matched; at
-      most --max-files with 4 blocks each, the rest by name), the entity pages of these keywords, the
+      root (files the status card or index hits name first, then files with a keyword in their name (also when only
+      the name holds it),
+      then in their front matter, then by keywords and blocks matched; at most --max-files with 4
+      blocks each, the rest by name, those with a keyword in their name listed apart, and a hint to
+      narrow when many files hit), the entity pages of these keywords, the
       quick notes only when the library itself has nothing, and which hits still wait in the
-      consolidation queue. A wording that starts or ends with a Latin letter or digit matches whole
+      consolidation queue. The file index is matched line by line. A wording shaped like a library
+      file name (<partition>_<topic>_<type>_<short title>) also searches its short title. A wording that starts or ends with a Latin letter or digit matches whole
       words only (PA is not found in Payments).
   history ROOT FILE [--words W ...] [--at HASH] [--limit N]
       Earlier versions of one knowledge file from git: the commits that changed it (git log --follow),
@@ -47,6 +51,8 @@ ITEM_RE = re.compile(r"^ {0,3}(?:\d{1,4}[.)]|[-*+])\s+")
 STAMP_RE = re.compile(r"\d{8}")
 REPO_FILES = {"README.md", "CLAUDE.md", "AGENTS.md"}  # a GitHub library's repository files, not knowledge
 BLOCK_CHARS = 700  # characters of one block printed; the rest is left to a read by line number
+FILE_NAME_RE = re.compile(r"^\d{2}_[^_\s]+_[^_\s]+_(.+?)(?:\.md)?$")  # <partition>_<topic>_<type>_<short title>
+MANY_FILES = 30  # source files with hits above which the output suggests narrowing the search
 
 
 def ignored(name, names):
@@ -228,6 +234,12 @@ def expand(groups, spec_text):
         words = [w.strip() for w in g.split("|") if w.strip()]
         notes = []
         low = {w.casefold() for w in words}
+        for w in list(words):  # a file name: its short title also finds it after a partition or topic rename
+            m = FILE_NAME_RE.match(w)
+            if m and m.group(1).casefold() not in low:
+                words.append(m.group(1))
+                low.add(m.group(1).casefold())
+                notes.append(f"{m.group(1)} (short title of a file name)")
         for orig, fixed in pairs:
             if orig.casefold() in low or (fixed and fixed.casefold() in low):
                 for w, why in ((orig, "old form, Table B"), (fixed, "standard form, Table B")):
@@ -262,6 +274,18 @@ def file_hits(path, rxs):
         got = frozenset(k for k, rx in enumerate(rxs) if rx and rx.search(text))
         if got:
             hits.append((b, got))
+    return lines, hits
+
+
+def line_hits(path, rxs):
+    """(lines, [(block, groups hit)]) with one block per matching line, for files of one entry per line
+    (the file index) whose entries are not separated by blank lines."""
+    lines = read_lines(path)
+    hits = []
+    for i, line in enumerate(lines):
+        got = frozenset(k for k, rx in enumerate(rxs) if rx and rx.search(line))
+        if got and line.strip():
+            hits.append(((i + 1, i + 1, (), "line", None), got))
     return lines, hits
 
 
@@ -304,7 +328,7 @@ def ask(root, groups, need_all=False, entities=False, max_files=5, per_file=4, p
     for key in SUMMARY_ORDER:
         if key == "spec" or key not in summ:
             continue
-        lines, hits = file_hits(os.path.join(root, summ[key]), rxs)
+        lines, hits = (line_hits if key == "index" else file_hits)(os.path.join(root, summ[key]), rxs)
         hits = [h for h in hits if keep(h[1])]
         cap = 15 if key in ("status_card", "index") else per_summary
         out.add(f"\n== {key}: {summ[key]} | {len(hits)} blocks | {len(lines)} lines")
@@ -329,13 +353,24 @@ def ask(root, groups, need_all=False, entities=False, max_files=5, per_file=4, p
     for f in files:
         lines, hits = file_hits(os.path.join(root, f), rxs)
         hits = [h for h in hits if keep(h[1])]
+        name_got = frozenset(k for k, rx in enumerate(rxs) if rx and rx.search(f[:-3]))
+        if not hits and name_got and keep(name_got):  # found by its name alone: show its opening block
+            first = next((b for b in blocks(lines) if b[3] != "heading"), None) or (1, 1, (), "line", None)
+            hits = [(first, name_got)]
         if hits:
-            found.append((f, lines, hits))
-    found.sort(key=lambda x: (x[0] not in named, -len({g for _, got in x[2] for g in got}), -len(x[2]), x[0]))
+            in_name = bool(name_got)
+            in_meta = any(b[3] == "front matter" for b, _ in hits)
+            found.append((f, lines, hits, in_name, in_meta))
+    # files the summaries name, then a keyword in the file name, then in the front matter, then by the body
+    found.sort(key=lambda x: (x[0] not in named, not x[3], not x[4],
+                              -len({g for _, got in x[2] for g in got}), -len(x[2]), x[0]))
+    log.debug("source files with hits: %d (in the name: %d, in the front matter: %d)",
+              len(found), sum(x[3] for x in found), sum(x[4] for x in found))
     out.add(f"\n== source files | {len(files)} searched | {len(found)} with hits"
             + (f" (showing {min(len(found), max_files)})" if found else ""))
-    for f, lines, hits in found[:max_files]:
-        tag = " | named in the status card or index" if f in named else ""
+    for f, lines, hits, in_name, in_meta in found[:max_files]:
+        tag = (" | named in the status card or index" if f in named else "") + (" | keyword in the file name"
+               if in_name else " | keyword in the front matter" if in_meta else "")
         out.add(f"\n= {f} | {len(hits)} blocks | {len(lines)} lines{tag}")
         for k, (b, _) in enumerate(hits):
             if k >= per_file:
@@ -343,8 +378,17 @@ def ask(root, groups, need_all=False, entities=False, max_files=5, per_file=4, p
                 break
             out.add(block_text(lines, b), f"{f} line {b[0]}")
     if len(found) > max_files:
-        out.add("also with hits: " + ", ".join(f"{f} ({len(h)})" for f, _, h in found[max_files:max_files + 15])
-                + (" ..." if len(found) > max_files + 15 else ""))
+        rest = found[max_files:]
+        by_name = [x[0] for x in rest if x[3]]
+        if by_name:
+            out.add("also with a keyword in the file name: " + ", ".join(by_name[:MANY_FILES])
+                    + (" ..." if len(by_name) > MANY_FILES else ""))
+        others = [x for x in rest if not x[3]]
+        if others:
+            out.add("also with hits: " + ", ".join(f"{f} ({len(h)})" for f, _, h, _, _ in others[:15])
+                    + (" ..." if len(others) > 15 else ""))
+    if len(found) > MANY_FILES:
+        out.add(f"many files hit ({len(found)}): add a keyword for the subject or occasion, or use --all to narrow")
     any_hit = any_hit or bool(found)
 
     ents = kbconf.entity_list(spec_text) or [] if spec_text else []
@@ -381,7 +425,7 @@ def ask(root, groups, need_all=False, entities=False, max_files=5, per_file=4, p
     queue = os.path.join(root, names["consolidation_queue"])
     if os.path.isfile(queue):
         qtext = "\n".join(read_lines(queue))
-        waiting = [f for f, _, _ in found if f in qtext]
+        waiting = [x[0] for x in found if x[0] in qtext]
         out.add(f"consolidation queue: present; files above still waiting: {', '.join(waiting) or 'none'}")
     if out.left:
         out.add(f"\nnot shown (output cap): {len(out.left)} blocks, from " + ", ".join(dict.fromkeys(

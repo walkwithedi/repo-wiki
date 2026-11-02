@@ -166,6 +166,20 @@ class KbgitSyncTest(Repo):
         p = run("kbgit.py", "sync", self.b, "--read-only")
         self.assertIn("Using the local copy.", p.stdout)
 
+    def test_shallow_clone_behind_is_not_diverged(self):
+        c = os.path.join(self.d, "c")
+        git(self.d, "clone", "-q", "--depth", "1", "file://" + self.origin, c)
+        for name in ("02_A.md", "02_B.md", "02_C.md"):
+            write(os.path.join(self.a, name), "x\n")
+            run("kbgit.py", "commit", self.a, "--title", "x", "--path", name)
+        git(c, "fetch", "-q", "--depth", "1", "origin", "+main:refs/remotes/origin/main")
+        self.assertNotEqual(subprocess.run(["git", "merge-base", "HEAD", "origin/main"], cwd=c,
+                                           capture_output=True, env=ENV).returncode, 0)
+        out = run("kbgit.py", "sync", c).stdout
+        self.assertIn("shallow clone: fetched more history", out)
+        self.assertIn("updated: 3 new commit(s)", out)
+        self.assertTrue(os.path.isfile(os.path.join(c, "02_C.md")))
+
     def test_unreachable_remote(self):
         git(self.b, "remote", "set-url", "origin", os.path.join(self.d, "gone.git"))
         p = run("kbgit.py", "sync", self.b, check=False)
