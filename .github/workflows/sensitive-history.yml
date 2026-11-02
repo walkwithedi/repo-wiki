@@ -19,10 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # every branch and tag; no later fetch, which would need credentials
           persist-credentials: false
-      - name: Fetch every branch and tag
-        run: git fetch --quiet --tags origin '+refs/heads/*:refs/remotes/origin/*'
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
