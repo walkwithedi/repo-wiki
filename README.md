@@ -102,3 +102,7 @@ Two presets start a library: life (health, money, insurance, home, family, IDs a
 Each release carries the three skill zips, their `-zh` versions and a zip of the whole repository ([what to download](docs/release-downloads.md)).
 
 Contributing, repository layout and development: [CONTRIBUTING.md](CONTRIBUTING.md). Licence: [MIT](LICENSE).
+
+## Feedback
+
+Send suggestions and feedback to [hong.xie.me@outlook.com](mailto:hong.xie.me@outlook.com).
