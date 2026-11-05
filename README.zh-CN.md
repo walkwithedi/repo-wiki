@@ -101,3 +101,7 @@ my-life-kb/
 每个发行版附三个 skill 的 zip、对应的 `-zh` 版和整个仓库的 zip（[下载哪个](docs/release-downloads.md)）。
 
 参与贡献、仓库结构与开发：[CONTRIBUTING.md](CONTRIBUTING.md)（英文）。许可证：[MIT](LICENSE)。
+
+## 反馈
+
+意见和建议请发邮件到 [hong.xie.me@outlook.com](mailto:hong.xie.me@outlook.com)。

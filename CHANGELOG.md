@@ -2,6 +2,10 @@
 
 Releases follow the "Version:" line of the three SKILL.md files; merging a version change to main publishes v<version> (.github/workflows/release.yml).
 
+## Unreleased
+
+- The READMEs end with a Feedback section giving the maintainer's feedback address. The sensitive-data scanner allows that one full address (PUBLIC_ADDRESSES) and still reports every other e-mail address. walkwithedi/edi-lab#206. The version (the SKILL.md "Version:" lines) comes from the upstream export and is unchanged, so this ships with the next release.
+
 ## 3.5.0
 
 Searches rank files by their names, read the file index line by line, and writing tasks look up the occasion behind the text.
