@@ -415,7 +415,8 @@ def cmd_commit(a):
         p = with_retry(root, "pull", "--rebase", "origin", br)
         if p.returncode:
             conflicts = git(root, "diff", "--name-only", "--diff-filter=U", check=False).stdout.split()
-            if os.path.isdir(os.path.join(root, ".git", "rebase-merge")) or os.path.isdir(os.path.join(root, ".git", "rebase-apply")):
+            git_dir = git(root, "rev-parse", "--absolute-git-dir").stdout.strip()
+            if any(os.path.isdir(os.path.join(git_dir, name)) for name in ("rebase-merge", "rebase-apply")):
                 git(root, "rebase", "--abort", check=False)
                 print("conflict with newer commits on the remote in: " + (", ".join(conflicts) or "(see git's message)"))
                 print(f"the commit {head} stays local and is not pushed. Report it; after the user confirms, "

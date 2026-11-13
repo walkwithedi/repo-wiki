@@ -41,8 +41,16 @@ def run_checks(skip=()):
             print(f"skip  {name}")
             continue
         start = time.time()
+        check_env = env.copy()
+        if name == "tests":
+            # Tests create independent repositories; hook-local Git state belongs only
+            # to this checkout and must not select their index or working tree.
+            local_vars = subprocess.run(["git", "rev-parse", "--local-env-vars"], cwd=ROOT,
+                                        capture_output=True, text=True, check=True)
+            for key in local_vars.stdout.splitlines():
+                check_env.pop(key, None)
         p = subprocess.run([sys.executable, *args], cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", env=env)
+                           encoding="utf-8", errors="replace", env=check_env)
         took = time.time() - start
         log.debug("%s exited %d in %.1fs", name, p.returncode, took)
         if p.returncode == 0:

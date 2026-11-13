@@ -7,7 +7,7 @@
 开始前逐项核对；缺了哪一项，往往到后面才表现为 skill 没反应或凭记忆作答。
 
 - [ ] Claude Code：终端、桌面应用，或网页与 Claude 手机应用里的 claude.ai/code。
-- [ ] 会话运行处有 git 和 Python 3.8 及以上。claude.ai/code 的云端会话两者都有；脚本只用 Python 标准库。
+- [ ] 会话运行处有 git 和 Python 3.9 及以上。claude.ai/code 的云端会话两者都有；脚本只用 Python 标准库。
 - [ ] 一个 GitHub 账号；用云端会话时，claude.ai 已连接 GitHub 并能访问知识库仓库。
 - [ ] 每个库一个空的**私有**仓库。里面已有 README 或许可证文件没关系。
 
@@ -106,3 +106,29 @@ git add -A .claude/skills && git commit -m "知识库 skill 升级到 <版本>" 
 ## 提交
 
 skill 只提交每一轮写入的文件，提交说明首行写模式和数量（如「Intake: 3 files」「Quick note: <文件名>」），推送到默认分支；从不建分支、开 PR 或强推。作者身份和提交说明规则取自 git 配置和仓库自己的 CLAUDE.md，想让提交说明用中文或用某个身份，就在 CLAUDE.md 里加一行写明。
+
+## Codex
+
+在私有知识库仓库的检出目录中使用 Codex，执行环境需有 Python 3.9+ 和 Git。适用于具备文件与命令执行能力的 Codex 会话，包括 ChatGPT 中的 Codex；没有仓库执行环境的普通聊天无法运行这些流程。
+
+把相同的三个发行版 zip 解压到 `.agents/skills/`，而非 `.claude/skills/`。两个助手都使用时，在两个目录安装同一版本，每次更新同时替换两套目录，解压前删除各自的旧 skill 文件夹。SKILL.md、脚本和 references 必须完整保留，脚本使用本次加载入口下的副本。发行版 skill 不含 Claude 专属的 `allowed-tools` 声明。
+
+在知识库的 AGENTS.md 中加入以下入口，保留已有指令：
+
+```markdown
+先读取 CLAUDE.md，遵守其中的知识库注册表、输出偏好和项目规则。注册表只保留在 CLAUDE.md。
+查询与涉及本库事实的写作，读取 .agents/skills/kb-query/SKILL.md。
+记录随手记，读取 .agents/skills/kb-note/SKILL.md。
+入库、整合、体检与初始化，读取 .agents/skills/kb-ingest/SKILL.md。
+继续读取 skill 要求的 references，遵守预览和确认节点。无法自动发现 skill 时，按以上路径显式加载。
+```
+
+提交并推送安装目录和入口。新库对 Codex 说「开始使用知识库」，按上文第 2 步初始化，注册表仍写在 CLAUDE.md，AGENTS.md 指向它。已有库只补入口，不重新初始化、不替换知识文件。新开会话问「我有哪些知识库？」验证。
+
+定位到已有库后，每个对话运行一次：
+
+```bash
+python3 .agents/skills/kb-query/scripts/kbdoctor.py .
+```
+
+这是只读的本地诊断。PDF 转换需要 Poppler（`pdftotext`、`pdfimages`、`pdfinfo`），缺少 PDF 工具不影响查询和随手记。依赖与 Git 凭据通过执行环境配置；诊断不验证网络、认证、推送权限、skill 自动发现或读图能力。Claude 的设置和 hooks 不会自动在 Codex 生效，不得伪造审批标记；skill 的校验与确认节点仍须执行，没有提问工具时在对话中列出选项并等待答复。脚本报告 `pushed:` 后才算写入交付。同一库的入库、整合、随手记整理须顺序执行。定时整合需要单独配置调度并明确授权，安装 skill 不会创建定时任务。

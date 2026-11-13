@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared configuration loader for the evergreen-wiki skills.
+"""Shared configuration loader for the knowledge base skills.
 
 Two levels of configuration:
 
@@ -181,7 +181,7 @@ def load_registry(path=None):
 
 BACKENDS = ("github",)
 OTHER_BACKENDS = {"gdrive": "Google Drive libraries: use walkwithedi/drive-wiki",
-                  "local": "local folders: use evergreen-wiki"}
+                  "local": "local folders: use walkwithedi/ask-local-files"}
 GITHUB_ROOT_RE = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 
 

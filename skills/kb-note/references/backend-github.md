@@ -1,10 +1,12 @@
 # Backend: GitHub repository
 
-The library is a GitHub repository; backend.root in the registry is "<owner>/<repo>". The skills work on a local checkout of it, in a coding agent such as Claude Code that can read and write files, run Python and run git. Without such an environment (claude.ai with only a GitHub connector, for example), stop and say that this library is used from a coding agent session with the repository checked out.
+The library is a GitHub repository; backend.root in the registry is "<owner>/<repo>". The skills work on its checkout in Claude Code or Codex, with file access, Python and git. A connector alone is not this execution environment: stop if the checkout is unavailable. A mobile client uses the attached cloud executor, not a checkout on the phone.
+
+Git authentication and network access must be configured for the executor. Being able to read through a connector or clone a repository does not prove push permission. Never print credentials or put them in tracked files. Sync and delivery report actual Git failures; keep the main-branch workflow, never silently substitute a pull request. A branch used by another worktree cannot be switched into: report the blocker, never detach or reset another checkout.
 
 ## The checkout
 
-1. Find the checkout: the current directory's git working tree when its origin remote names <owner>/<repo> (git remote get-url origin; ignore letter case and a trailing .git), else a directory the project instructions name. None found: stop and say which repository is missing; never clone into or write to another folder. In a cloud session (claude.ai/code) say that the repository is to be added to this session (in a coding agent with an add-repository tool, offer to add it), not cloned by hand.
+1. Find the checkout: the current directory's git working tree when its origin remote names <owner>/<repo> (git remote get-url origin; ignore letter case and a trailing .git), else a directory the project instructions name. None found: stop and say which repository is missing; never clone into or write to another folder. In a cloud session, use the environment's repository configuration to attach it; never guess another checkout location.
 2. The library root is the top of that working tree (git rev-parse --show-toplevel).
 3. Bring the checkout up to date with python3 scripts/kbgit.py sync <root> (kb-query adds --read-only). It finds the remote's default branch, switches a checkout that is on another branch (a cloud session checks out a branch of its own) to the default branch when that loses nothing, fetches, fast-forwards when the branch is only behind, and prints its status lines. When:
    - kb-query: before the first read of a conversation, and again when the user asks for the latest state ("pull", "sync", 「拉取最新」「同步」).
@@ -12,7 +14,7 @@ The library is a GitHub repository; backend.root in the registry is "<owner>/<re
    - kb-note: note.py save syncs before it writes; no separate call.
    kb-query never stops here: when the remote cannot be reached, the branch has diverged or cannot be switched, it answers from the local copy and adds once that the library may not be current. kb-ingest and kb-note stop on exit 3 or 4 and report the lines; never reset, stash or force anything (the one exception is drop-local under "Commit and push"). Without Python: git switch to the default branch when the current one holds no commits of its own, then git pull --ff-only, with the same rules.
 4. Work on the default branch: sync switches to it and kbgit.py commit refuses any other branch. Never create branches, open pull requests or rewrite history for library changes.
-5. A fresh copy needs no other mechanism: the sync above, or, when it cannot fast-forward, drop-local after the user confirms (under "Commit and push"). A cloud session clones the repository afresh when it starts; never clone by hand.
+5. A fresh or resumed cloud checkout uses the same sync. Do not assume a new container or a current checkout. When it cannot fast-forward, drop-local needs the user's confirmation (under "Commit and push"). Never clone by hand as a workaround for a missing library.
 6. Everything happens in the checkout: read, search and compare files there with scripts and local tools. Never fetch library files through a GitHub connector or API.
 
 ## Operations
