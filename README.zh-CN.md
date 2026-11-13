@@ -1,6 +1,6 @@
 # repo-wiki（GitHub 仓库常青知识库）
 
-由 Claude Code 维护、放在你自己私有 GitHub 仓库里的个人知识库，内容始终是现行的。在终端、桌面应用或手机上的 claude.ai/code 里提问，得到的是一个现行答案，并注明出自哪个文件；每次改动都是一个提交，git 保留以前的每一版。三个 skill 完成工作；知识库就是你自己仓库里的一个普通 Markdown 文件夹。
+由 Claude Code 或 Codex 维护、放在你自己私有 GitHub 仓库里的个人知识库，内容始终是现行的。在终端、桌面应用或手机上的 claude.ai/code 里提问，得到的是一个现行答案，并注明出自哪个文件；每次改动都是一个提交，git 保留以前的每一版。三个 skill 完成工作；知识库就是你自己仓库里的一个普通 Markdown 文件夹。
 
 [English](README.md)
 
@@ -41,9 +41,11 @@ Claude：知识库：生活库
 
 全部口令及之后会发生什么：[docs/daily-use.zh-CN.md](docs/daily-use.zh-CN.md)。
 
+Codex 同样可在已检出的知识库仓库中使用，安装方式见[Codex 设置](docs/setup.zh-CN.md#codex)。
+
 ## 快速开始
 
-你需要 Claude Code（终端、桌面应用，或网页与手机上的 claude.ai/code）、git、Python 3.8 及以上，以及一个 GitHub 账号。
+你需要 Claude Code（终端、桌面应用，或网页与手机上的 claude.ai/code）、git、Python 3.9 及以上，以及一个 GitHub 账号。
 
 1. 在 GitHub 上为知识库新建一个空的**私有**仓库。里面会放个人或工作材料，绝不能设为公开。
 2. 从 [Releases](../../releases) 下载 `kb-note`、`kb-query`、`kb-ingest` 三个 zip（带 `-zh` 的是中文口令版），解压到知识库仓库的 `.claude/skills/` 下，提交并推送。

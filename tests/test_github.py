@@ -74,6 +74,21 @@ class Repo(unittest.TestCase):
 
 
 class KbgitCommitTest(Repo):
+    def test_rebase_conflict_in_worktree_is_aborted(self):
+        wt = os.path.join(self.d, "wt")
+        git(self.a, "switch", "-q", "-c", "parking")
+        git(self.a, "worktree", "add", "-q", wt, "main")
+        write(os.path.join(self.b, "00_Spec.md"), "remote change\n")
+        git(self.b, "add", "00_Spec.md")
+        git(self.b, "commit", "-qm", "remote")
+        git(self.b, "push", "-q", "origin", "main")
+        write(os.path.join(wt, "00_Spec.md"), "local change\n")
+        p = run("kbgit.py", "commit", wt, "--title", "update", "--path", "00_Spec.md", check=False)
+        self.assertEqual(p.returncode, 3, p.stdout + p.stderr)
+        self.assertIn("conflict with newer commits", p.stdout)
+        self.assertEqual(git(wt, "branch", "--show-current").strip(), "main")
+        self.assertEqual(git(wt, "status", "--porcelain").strip(), "")
+
     def test_identity_message_and_push(self):
         write(os.path.join(self.a, "02_Health_Report_A.md"), "report\n")
         write(os.path.join(self.d, "log.txt"), "=== Delivery ===\n  write   | 02_Health_Report_A.md\n\nWritten 1.\n"

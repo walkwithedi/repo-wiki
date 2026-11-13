@@ -1,6 +1,6 @@
 # repo-wiki
 
-A personal knowledge base that Claude Code keeps current in a private GitHub repository. Ask it from a terminal, the desktop app or claude.ai/code on your phone and get one current answer with the file it came from; every change is a commit, so git keeps every earlier version. Three skills do the work; the library is a plain folder of Markdown files in a repository you own.
+A personal knowledge base that Claude Code or Codex keeps current in a private GitHub repository. Ask it from a terminal, the desktop app or claude.ai/code on your phone and get one current answer with the file it came from; every change is a commit, so git keeps every earlier version. Three skills do the work; the library is a plain folder of Markdown files in a repository you own.
 
 [中文说明](README.zh-CN.md)
 
@@ -42,9 +42,11 @@ File the 2026 checkup and say "consolidate": item 1 is proposed for an update, y
 
 All phrases, and what happens after each: [docs/daily-use.md](docs/daily-use.md).
 
+Codex is also supported in a checked-out library repository; see [Codex setup](docs/setup.md#codex).
+
 ## Quick start
 
-You need Claude Code (terminal, desktop app, or claude.ai/code on the web and phone), git, Python 3.8 or newer, and a GitHub account.
+You need Claude Code (terminal, desktop app, or claude.ai/code on the web and phone), git, Python 3.9 or newer, and a GitHub account.
 
 1. Create an empty **private** repository on GitHub for the library. It will hold personal or work material, so never make it public.
 2. Download `kb-note`, `kb-query` and `kb-ingest` from [Releases](../../releases) (three zips; the `-zh` ones have Chinese trigger phrases). Unpack them into `.claude/skills/` of the library repository, commit and push.

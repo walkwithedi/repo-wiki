@@ -7,7 +7,7 @@ How to start a library in a GitHub repository, what each step writes, and how to
 Check each item before you start; a missing one usually shows up later as a skill that does nothing or answers from memory.
 
 - [ ] Claude Code: in a terminal, the desktop app, or claude.ai/code on the web and in the Claude phone app.
-- [ ] git and Python 3.8 or newer where the session runs. Cloud sessions on claude.ai/code have both; the scripts use only the Python standard library.
+- [ ] git and Python 3.9 or newer where the session runs. Cloud sessions on claude.ai/code have both; the scripts use only the Python standard library.
 - [ ] A GitHub account, and for cloud sessions GitHub connected to claude.ai with access to the library repository.
 - [ ] A **private**, empty repository for each library. A README or a licence file in it is fine.
 
@@ -106,3 +106,29 @@ Knowledge base registry (kb-libraries.json):
 ## Commits
 
 The skills commit only the files each round wrote, with a first line naming the mode and the count ("Intake: 3 files", "Quick note: <file name>"), and push to the default branch. They never create branches, open pull requests or force-push. Author identity and message rules come from git's configuration and from the repository's own CLAUDE.md, so add a line there if you want commits in a certain language or under a certain name.
+
+## Codex
+
+Use Codex in a checkout of the private library repository, with Python 3.9+ and Git available. These instructions apply to Codex sessions with file and shell access, including Codex in ChatGPT; a plain chat without a repository executor cannot run these workflows.
+
+Install the same three release zips into `.agents/skills/` instead of `.claude/skills/`. To use both assistants, install both sets from the same release and update both sets together; remove each old skill folder before unpacking its replacement. Keep scripts and references with their SKILL.md, and run scripts from the entrypoint that was loaded. The release skills carry no Claude-only `allowed-tools` declaration.
+
+Create or extend the library's AGENTS.md, preserving existing instructions, with:
+
+```markdown
+Read CLAUDE.md first for the knowledge base registry, output preferences and project rules. Keep the registry only in CLAUDE.md.
+For questions and writing involving library facts, read .agents/skills/kb-query/SKILL.md.
+For quick notes, read .agents/skills/kb-note/SKILL.md.
+For intake, consolidation, health checks and initialization, read .agents/skills/kb-ingest/SKILL.md.
+Read each skill's required references and follow its previews and confirmations. Load the matching SKILL.md explicitly when automatic discovery is unavailable.
+```
+
+Commit and push the installed folders and entrypoint. For a new library, ask Codex to "get started with the knowledge base" and follow step 2 above; initialization keeps the registry in CLAUDE.md and points AGENTS.md to it. For an existing library, add the entrypoint without rerunning initialization or replacing knowledge files. In a new session ask "which knowledge bases do I have?".
+
+After locating an existing library, run once per conversation:
+
+```bash
+python3 .agents/skills/kb-query/scripts/kbdoctor.py .
+```
+
+This is a read-only local check. PDF conversion needs Poppler (`pdftotext`, `pdfimages`, `pdfinfo`); missing PDF tools do not block queries or notes. Configure dependencies and Git credentials through the execution environment. The diagnostic does not verify network access, authentication, push permission, automatic skill discovery or image reading. Claude settings and hooks do not run automatically in Codex, and approval markers must never be fabricated. Keep the skill's checks and confirmation points; use conversation choices when a question tool is unavailable. A write is delivered only after the script reports `pushed:`. Run intake, consolidation and quick-note filing sequentially for one library. Scheduled consolidation needs a separate scheduler and explicit authorization; installing skills does not create a schedule.

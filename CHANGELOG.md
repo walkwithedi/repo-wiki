@@ -6,6 +6,15 @@ Releases follow the "Version:" line of the three SKILL.md files; merging a versi
 
 - The READMEs end with a Feedback section giving the maintainer's feedback address. The sensitive-data scanner allows that one full address (PUBLIC_ADDRESSES) and still reports every other e-mail address. walkwithedi/edi-lab#206. The version (the SKILL.md "Version:" lines) comes from the upstream export and is unchanged, so this ships with the next release.
 
+## 3.8.0
+
+- All three skills support Claude Code and Codex with the same workflows and confirmation points. Explicit skill loading, cloud uploads, credentials and separately configured schedules are documented so a missing host capability is reported rather than assumed.
+- `kbdoctor.py` checks Python 3.9+, Git, library configuration and optional PDF tools without changing files, accessing the network or testing push permissions.
+- Initialization includes an AGENTS.md entrypoint that reads the single registry in CLAUDE.md and loads skills from `.agents/skills/`.
+- Git rebase conflict detection and abort handling work in linked worktrees as well as ordinary checkouts.
+- Unsupported local-folder libraries point to ask-local-files.
+- Checks isolate test repositories from Git hook environment variables so linked-worktree tests also run during a commit.
+
 ## 3.5.0
 
 Searches rank files by their names, read the file index line by line, and writing tasks look up the occasion behind the text.

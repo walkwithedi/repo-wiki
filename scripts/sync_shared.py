@@ -27,6 +27,7 @@ PLAN = [(f"references/{r}", [f"skills/{s}/references" for s in ("kb-note", "kb-q
 PLAN.append(("scripts/kbconf.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts", "skills/kb-note/scripts"]))
 # git steps of a GitHub library (references/backend-github.md); needs kbconf.py next to it
 PLAN.append(("scripts/kbgit.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts", "skills/kb-note/scripts"]))
+PLAN.append(("scripts/kbdoctor.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts", "skills/kb-note/scripts"]))
 # local search of a library: kb-query answers with it, kb-ingest reads status-card blocks with it
 PLAN.append(("scripts/kbfind.py", ["skills/kb-ingest/scripts", "skills/kb-query/scripts"]))
 # the converter: used by kb-ingest (scripts/convert.py)
